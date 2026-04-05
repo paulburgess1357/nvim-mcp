@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from mcp.server.fastmcp import FastMCP
 
 from nvim_mcp.neovim import NeovimManager
@@ -34,7 +36,7 @@ async def nvim_connect(
 @mcp.tool()
 async def nvim_send(
     input: str,
-    mode: str = "command",
+    mode: Literal["command", "eval", "keys"] = "command",
 ) -> str:
     """Send input to Neovim.
 

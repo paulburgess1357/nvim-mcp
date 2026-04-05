@@ -105,33 +105,33 @@
 
 ## Registers
 
-- Get register a as string (eval result): nvim_send(input="vim.fn.getreg('a')", mode="eval")
+- Get register a as string (eval result): nvim_send(input="getreg('a')", mode="eval")
 - Set register a: nvim_send(input="let @a = 'text'", mode="command")
 - Append to register a: nvim_send(input="let @A = @A .. 'more'", mode="command")
 - List registers: nvim_send(input="registers", mode="command")
 - Yank line to register a: nvim_send(input="lua vim.fn.setreg('a', vim.fn.getline('.'))", mode="command")
 - Black hole register (discard yank target): nvim_send(input="let @_ = @a", mode="command")
-- System clipboard get: nvim_send(input="vim.fn.getreg('+')", mode="eval")
+- System clipboard get: nvim_send(input="getreg('+')", mode="eval")
 - System clipboard set: nvim_send(input="let @+ = 'text'", mode="command")
-- Primary selection get (X11): nvim_send(input="vim.fn.getreg('*')", mode="eval")
-- Unnamed register: nvim_send(input="vim.fn.getreg('\"')", mode="eval")
-- Last yank: nvim_send(input="vim.fn.getreg('0')", mode="eval")
-- Last insert (`.` register): nvim_send(input="vim.fn.getreg('.')", mode="eval")
-- Last command line: nvim_send(input="vim.fn.getreg(':')", mode="eval")
-- Last search pattern: nvim_send(input="vim.fn.getreg('/')", mode="eval")
-- Small delete: nvim_send(input="vim.fn.getreg('-')", mode="eval")
-- Expression register result: nvim_send(input="vim.fn.getreg('=')", mode="eval")
+- Primary selection get (X11): nvim_send(input="getreg('*')", mode="eval")
+- Unnamed register: nvim_send(input="getreg('\"')", mode="eval")
+- Last yank: nvim_send(input="getreg('0')", mode="eval")
+- Last insert (`.` register): nvim_send(input="getreg('.')", mode="eval")
+- Last command line: nvim_send(input="getreg(':')", mode="eval")
+- Last search pattern: nvim_send(input="getreg('/')", mode="eval")
+- Small delete: nvim_send(input="getreg('-')", mode="eval")
+- Expression register result: nvim_send(input="getreg('=')", mode="eval")
 
 ## Folds
 
 - Close fold at cursor: nvim_send(input="foldclose", mode="command")
 - Open fold at cursor: nvim_send(input="foldopen", mode="command")
-- Toggle fold: nvim_send(input="foldtoggle", mode="command")
+- Toggle fold: nvim_send(input="za", mode="keys")
 - Close all folds (foldlevel): nvim_send(input="lua vim.o.foldlevel = 0", mode="command")
 - Open all folds: nvim_send(input="lua vim.o.foldlevel = 99", mode="command")
 - Create fold for range (lines 3–10): nvim_send(input="3,10fold", mode="command")
-- Delete fold at cursor: nvim_send(input="folddelete", mode="command")
-- Delete all folds in window: nvim_send(input="foldclear", mode="command")
+- Delete fold at cursor: nvim_send(input="zd", mode="keys")
+- Delete all folds in window: nvim_send(input="normal! zE", mode="command")
 - Enable folding for buffer: nvim_send(input="setlocal foldmethod=manual", mode="command")
 
 ## LSP & Diagnostics

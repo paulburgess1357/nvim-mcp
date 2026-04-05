@@ -209,7 +209,13 @@ class NeovimManager:
                 err = await self._auto_connect_unlocked()
                 if err is not None:
                     raise RuntimeError(err)
-            return await asyncio.to_thread(self._get_state_sync)
+            try:
+                return await asyncio.to_thread(self._get_state_sync)
+            except (OSError, pynvim.NvimError) as e:
+                if not self._is_connection_error(e):
+                    raise
+                await self._reconnect_unlocked()
+                return await asyncio.to_thread(self._get_state_sync)
 
     def _get_state_sync(self) -> dict:
         assert self._nvim is not None
