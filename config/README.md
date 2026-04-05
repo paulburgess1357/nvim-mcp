@@ -8,9 +8,11 @@ assistant.
 Your AI tool needs to know how to start nvim-mcp. Pick the setup that matches
 your client.
 
-### Cursor
+### From PyPI (after publishing)
 
-Add to `.cursor/mcp.json` in your project (or global settings):
+#### Cursor
+
+Add to `.cursor/mcp.json` (project or `~/.cursor/mcp.json` for global):
 
 ```json
 {
@@ -23,23 +25,37 @@ Add to `.cursor/mcp.json` in your project (or global settings):
 }
 ```
 
-### Claude Desktop
-
-Add the same `mcpServers` entry to your Claude Desktop config file
-(`claude_desktop_config.json`).
-
-### Claude CLI
+#### Claude CLI
 
 ```bash
 claude mcp add nvim-mcp -- uvx nvim-mcp
 ```
 
-### Other MCP clients
+#### Claude Desktop / other clients
 
-Any client that supports stdio transport can run:
+Same pattern — command is `uvx`, args `["nvim-mcp"]`.
+
+### From a local clone
+
+If nvim-mcp isn't published yet (or you're developing it), point at the repo:
+
+#### Cursor
+
+```json
+{
+  "mcpServers": {
+    "nvim-mcp": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/nvim-mcp", "nvim-mcp"]
+    }
+  }
+}
+```
+
+#### Claude CLI
 
 ```bash
-uvx nvim-mcp
+claude mcp add nvim-mcp -- uv run --directory /path/to/nvim-mcp nvim-mcp
 ```
 
 ## 2. Teach the assistant how to use it
