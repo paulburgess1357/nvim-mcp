@@ -86,40 +86,12 @@ uvx nvim-mcp
 
 ---
 
-## Appendix: Cursor rule (`.cursor/rules/*.mdc`)
+## AI assistant rules
 
-Copy or adapt the following as a **Cursor rule** so the model uses nvim-mcp consistently.
+The [`rules/`](rules/) directory contains ready-to-use rule files that teach AI assistants how to use nvim-mcp:
 
-````markdown
----
-description: Use nvim-mcp to inspect and control the user's Neovim session
-alwaysApply: false
----
-
-# Neovim via MCP (nvim-mcp)
-
-The user edits in **Neovim**. Use **nvim-mcp** tools instead of guessing buffer contents from chat.
-
-## Ground truth
-
-- Call **`nvim_state`** to see the current file, cursor line/column, windows, cwd, and modified buffers. Prefer this over inferring from conversation alone.
-- If the tool reports multiple instances, call **`nvim_connect`** with `index`, `socket_path`, or `terminal_pid` before relying on other tools.
-
-## Actions in Neovim
-
-- Use **`nvim_send`** with `mode="command"` for ex commands (open file, write, LSP via `lua vim.lsp.buf...`, etc.).
-- Use `mode="eval"` when you need a Vimscript expression result.
-- Use `mode="keys"` for normal-mode motion and toggles (e.g. folds, jumps).
-
-## Discovering operations
-
-- Call **`nvim_recipes`** with no arguments for a quick list and categories; pass `category` for full detail (navigation, LSP, buffers, etc.).
-
-## Files on disk vs. Neovim
-
-- The assistant often **edits files on disk** with its own tools. Neovim does not auto-reload those changes unless asked.
-- After you change a file on disk that is open in Neovim, always call **`nvim_send`** with `input="checktime"` and `mode="command"` so Neovim can reload from disk when the buffer is unchanged; if the buffer is modified, coordinate with the user.
-````
+- **[`rules/cursor.mdc`](rules/cursor.mdc)** — Cursor rule. Copy to `.cursor/rules/` in your project.
+- **[`rules/AGENTS.md`](rules/AGENTS.md)** — Generic rule for Claude Code, Codex, and other agents. Copy to your project root or follow your tool's convention.
 
 ---
 
