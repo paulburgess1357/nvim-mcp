@@ -8,7 +8,7 @@ assistant.
 Your AI tool needs to know how to start nvim-mcp. Pick the setup that matches
 your client.
 
-### From PyPI (after publishing)
+### From PyPI
 
 #### Cursor
 
@@ -35,9 +35,9 @@ claude mcp add nvim-mcp -- uvx nvim-mcp
 
 Same pattern — command is `uvx`, args `["nvim-mcp"]`.
 
-### From a local clone
+### From a local clone (development)
 
-If nvim-mcp isn't published yet (or you're developing it), point at the repo:
+If you're developing nvim-mcp, point at the repo instead:
 
 #### Cursor
 
