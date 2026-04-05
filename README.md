@@ -88,10 +88,10 @@ uvx nvim-mcp
 
 ## AI assistant rules
 
-The [`llm-setup/`](llm-setup/) directory contains ready-to-use rule files that teach AI assistants how to use nvim-mcp:
+The [`config/`](config/) directory contains ready-to-use rule files that teach AI assistants how to use nvim-mcp:
 
-- **[`llm-setup/cursor.mdc`](llm-setup/cursor.mdc)** — Cursor rule. Copy to `.cursor/rules/` in your project.
-- **[`llm-setup/AGENTS.md`](llm-setup/AGENTS.md)** — Generic rule for Claude Code, Codex, and other agents. Copy to your project root or follow your tool's convention.
+- **[`config/cursor.mdc`](config/cursor.mdc)** — Cursor rule. Copy to `.cursor/rules/` in your project.
+- **[`config/AGENTS.md`](config/AGENTS.md)** — Generic rule for Claude Code, Codex, and other agents. Copy to your project root or follow your tool's convention.
 
 ---
 
