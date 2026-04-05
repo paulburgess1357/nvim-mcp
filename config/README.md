@@ -57,7 +57,7 @@ are examples you can copy and adapt:
 These are starting points. Adjust them to match your workflow — add
 project-specific conventions, change what's always-on vs. manual, etc.
 
-## Environment variables
+## Optional Environment variables
 
 | Variable | Effect |
 |----------|--------|
