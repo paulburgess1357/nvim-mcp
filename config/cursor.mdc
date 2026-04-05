@@ -65,4 +65,6 @@ just what's in the recipes.
 ## Multi-instance
 
 If the user has multiple Neovim instances, `nvim_connect` lists them.
-Pick one with `index=N`, `socket_path="..."`, or `terminal_pid=...`.
+**Always ask the user which instance they mean** before connecting — don't
+guess. Present the list (cwd and open file for each) so they can pick.
+Connect with `index=N`, `socket_path="..."`, or `terminal_pid=...`.

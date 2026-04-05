@@ -58,6 +58,7 @@ marks, registers, folds, LSP & diagnostics.
 ## nvim_connect
 
 Manages connections to Neovim instances. With one instance running, other tools
-auto-connect. With multiple instances, call `nvim_connect` with no arguments to
-list them, then pick one with `index=N`, `socket_path="..."`, or
-`terminal_pid=...`.
+auto-connect. With multiple instances, **always ask the user which instance
+they mean** before connecting — don't guess. Present the list (cwd and open
+file for each) so they can pick. Connect with `index=N`,
+`socket_path="..."`, or `terminal_pid=...`.
