@@ -278,6 +278,16 @@ class NeovimManager:
 
     @staticmethod
     def _all_sockets() -> list[str]:
+        override = os.environ.get("NVIM_SOCKET_PATH")
+        if override:
+            try:
+                real = os.path.realpath(override)
+                st = os.stat(real)
+                if stat.S_ISSOCK(st.st_mode):
+                    return [real]
+            except OSError:
+                pass
+
         search_dirs: list[str] = []
 
         xdg = os.environ.get("XDG_RUNTIME_DIR")
