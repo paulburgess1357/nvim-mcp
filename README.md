@@ -1,5 +1,7 @@
 # nvim-mcp
 
+[![PyPI](https://img.shields.io/pypi/v/nvim-mcp)](https://pypi.org/project/nvim-mcp/)
+
 **nvim-mcp** is an [MCP](https://modelcontextprotocol.io/) server that lets AI assistants (Cursor, Claude, and others) control a running **Neovim** session: open buffers, move the cursor, run LSP actions, inspect layout, and more. It talks to Neovim over its default **socket** via [pynvim](https://github.com/neovim/pynvim), discovers instances automatically, and exposes four tools.
 
 **Platforms:** Linux and macOS only.

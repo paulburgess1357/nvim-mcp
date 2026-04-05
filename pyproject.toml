@@ -4,12 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nvim-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server for AI-assisted control of Neovim via pynvim"
+readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "nvim-mcp contributors" }]
+authors = [{ name = "Paul Burgess" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
@@ -33,7 +34,7 @@ dependencies = [
 nvim-mcp = "nvim_mcp.server:main"
 
 [project.urls]
-Homepage = "https://github.com/nvim-mcp/nvim-mcp"
+Homepage = "https://github.com/paulburgess1357/nvim-mcp"
 
 [dependency-groups]
 dev = [
@@ -47,6 +48,7 @@ packages = ["src/nvim_mcp"]
 include = [
     "/src",
     "/LICENSE",
+    "/README.md",
 ]
 
 [tool.pytest.ini_options]
