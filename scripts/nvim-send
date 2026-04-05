@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+# nvim-send — Send keystrokes or commands to a running Neovim instance.
+#
+# Low-level utility that auto-detects the Neovim server socket and sends
+# keystrokes (--remote-send) or evaluates expressions (--remote-expr).
+#
+# Interface:
+#   nvim-send <keys>                  Send keystrokes to Neovim
+#   nvim-send -c <ex-command>         Send an ex command (auto-wraps in :<cmd><CR>)
+#   nvim-send -e <expr>              Evaluate a Neovim expression, print result
+#   nvim-send -s <socket> <keys>      Use a specific Neovim server socket
+#   nvim-send -t <pid> <keys>         Target the Neovim under a terminal shell PID
+#
+# Examples:
+#   nvim-send ':e /path/to/file.cpp<CR>'   Open a file (raw keystrokes)
+#   nvim-send -c 'e /path/to/file.cpp'     Open a file (ex command, auto-wrapped)
+#   nvim-send -c 'w'                        Save current buffer
+#   nvim-send -c '10'                        Jump to line 10
+#   nvim-send '10GV20G'                     Visual-line select lines 10-20
+#   nvim-send 'gg=G'                        Re-indent entire file
+#   nvim-send -e 'getcwd()'                 Print Neovim's working directory
+#   nvim-send -e 'expand("%:p")'            Print path of current buffer
+#
+# Behavior:
+#   - Auto-detects the Neovim socket from /run/user/$UID or /tmp.
+#   - With -t, walks the process tree from the given PID to find the
+#     correct Neovim socket (needed when multiple instances are running).
+#   - With -c, wraps the command as :<command><CR> so you don't have to.
+#   - With -e, evaluates a VimL expression and prints the result to stdout.
+#   - Without -c or -e, sends raw keystrokes (you control the exact input).
+#   - Ensures Neovim is in normal mode first by prepending <Esc> (use -r to skip).
+#
+# Exit codes:
+#   0  Success
+#   1  No socket found / Neovim unreachable
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: nvim-send [OPTIONS] <keys|command|expr>
+
+Send keystrokes or commands to a running Neovim instance.
+
+Options:
+  -s, --socket PATH   Neovim server socket path (auto-detected if omitted)
+  -t, --terminal-pid PID  PID of the terminal shell that owns the target Neovim.
+                       Used to disambiguate when multiple Neovim instances exist.
+  -c, --command        Treat argument as an ex command (auto-wraps in :<cmd><CR>)
+  -e, --expr           Evaluate a VimL expression and print the result
+  -r, --raw            Skip prepending <Esc> (send exactly what's given)
+  -h, --help           Show this help
+
+By default, <Esc> is prepended to ensure Neovim is in normal mode before
+sending input. Use -r to disable this.
+
+When multiple Neovim instances are running, use -t with the PID of the
+terminal shell to select the correct one. The script walks the process
+tree from that PID to find the Neovim instance, then matches it to a socket.
+
+Examples:
+  nvim-send '10GV20G'                     Visual-line select lines 10-20
+  nvim-send -c 'e /path/to/file.cpp'      Open a file
+  nvim-send -c 'w'                         Save current buffer
+  nvim-send -c '10'                        Jump to line 10
+  nvim-send -e 'getcwd()'                  Print Neovim's working directory
+  nvim-send -e 'expand("%:p")'             Print current buffer path
+  nvim-send -t 12345 -c 'checktime'       Target Neovim under shell PID 12345
+EOF
+  exit 0
+}
+
+get_descendants() {
+  local pid=$1
+  local children
+  children=$(pgrep -P "$pid" 2>/dev/null) || return 0
+  for child in $children; do
+    echo "$child"
+    get_descendants "$child"
+  done
+}
+
+all_sockets() {
+  local uid
+  uid=$(id -u)
+  find "/run/user/${uid}" /tmp -maxdepth 4 -name 'nvim*' -type s 2>/dev/null
+}
+
+find_socket_for_terminal() {
+  local terminal_pid=$1
+  local descendants
+  descendants=$(get_descendants "$terminal_pid")
+
+  if [[ -z "$descendants" ]]; then
+    echo "Error: no child processes found under terminal PID ${terminal_pid}" >&2
+    return 1
+  fi
+
+  local socket sock_pid
+  while IFS= read -r socket; do
+    [[ -z "$socket" ]] && continue
+    sock_pid=$(nvim --server "$socket" --remote-expr 'getpid()' 2>/dev/null) || continue
+    if echo "$descendants" | grep -qw "$sock_pid"; then
+      echo "$socket"
+      return 0
+    fi
+  done < <(all_sockets)
+
+  echo "Error: no Neovim socket found for terminal PID ${terminal_pid}" >&2
+  return 1
+}
+
+find_socket() {
+  local socket
+  socket=$(all_sockets | head -1)
+  if [[ -z "$socket" ]]; then
+    echo "Error: no Neovim server socket found" >&2
+    exit 1
+  fi
+  echo "$socket"
+}
+
+SOCKET=""
+TERMINAL_PID=""
+MODE="keys"
+RAW=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -s|--socket)       SOCKET="$2"; shift 2 ;;
+    -t|--terminal-pid) TERMINAL_PID="$2"; shift 2 ;;
+    -c|--command)      MODE="command"; shift ;;
+    -e|--expr)         MODE="expr"; shift ;;
+    -r|--raw)          RAW=true; shift ;;
+    -h|--help)         usage ;;
+    -*)                echo "Unknown option: $1" >&2; exit 1 ;;
+    *)                 break ;;
+  esac
+done
+
+if [[ $# -lt 1 ]]; then
+  echo "Error: argument required" >&2
+  usage
+fi
+
+INPUT="$1"
+
+if [[ -z "$SOCKET" ]]; then
+  if [[ -n "$TERMINAL_PID" ]]; then
+    SOCKET=$(find_socket_for_terminal "$TERMINAL_PID")
+  else
+    SOCKET=$(find_socket)
+  fi
+fi
+
+case "$MODE" in
+  expr)
+    nvim --server "$SOCKET" --remote-expr "$INPUT" 2>/dev/null || {
+      echo "Error: could not evaluate expression at $SOCKET" >&2
+      exit 1
+    }
+    ;;
+  command)
+    nvim --server "$SOCKET" --remote-send "<Esc>:${INPUT}<CR>"
+    ;;
+  keys)
+    local_input="$INPUT"
+    if ! $RAW; then
+      local_input="<Esc>${INPUT}"
+    fi
+    nvim --server "$SOCKET" --remote-send "$local_input"
+    ;;
+esac

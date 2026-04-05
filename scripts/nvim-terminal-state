@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# nvim-terminal-state — Query current Neovim state in a single round trip.
+#
+# Returns key=value pairs for cursor position, current file, and line number
+# display config. Useful for tooling that needs to map terminal display lines
+# to absolute source line numbers.
+#
+# Interface:
+#   nvim-terminal-state                  Query the default Neovim instance
+#   nvim-terminal-state -t <pid>         Target the Neovim under a terminal shell PID
+#   nvim-terminal-state -s <socket>      Use a specific Neovim server socket
+#
+# Output (key=value, one per line):
+#   file=/absolute/path/to/current/file.cpp
+#   line=42
+#   col=10
+#   relativenumber=1
+#
+# Examples:
+#   nvim-terminal-state -t 12345
+#   eval "$(nvim-terminal-state -t 12345)"   # Import values as shell variables
+#
+# Exit codes:
+#   0  Success
+#   1  No socket found / Neovim unreachable
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NVIM_SEND="${SCRIPT_DIR}/nvim-send"
+
+usage() {
+  cat <<'EOF'
+Usage: nvim-terminal-state [OPTIONS]
+
+Query current Neovim state (file, cursor position, line number config).
+
+Options:
+  -s, --socket PATH       Neovim server socket path (auto-detected if omitted)
+  -t, --terminal-pid PID  PID of the terminal shell that owns the target Neovim
+  -h, --help              Show this help
+
+Output:
+  file=<path>             Absolute path of the current buffer
+  line=<n>                Cursor line number (1-indexed)
+  col=<n>                 Cursor column number (1-indexed)
+  relativenumber=<0|1>    Whether relative line numbers are enabled
+
+Examples:
+  nvim-terminal-state -t 12345
+  eval "$(nvim-terminal-state -t 12345)"
+EOF
+  exit 0
+}
+
+SOCKET_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -s|--socket)       SOCKET_ARGS=(-s "$2"); shift 2 ;;
+    -t|--terminal-pid) SOCKET_ARGS=(-t "$2"); shift 2 ;;
+    -h|--help)         usage ;;
+    -*)                echo "Unknown option: $1" >&2; exit 1 ;;
+    *)                 echo "Unexpected argument: $1" >&2; exit 1 ;;
+  esac
+done
+
+EXPR='expand("%:p") .. "\n" .. line(".") .. "\n" .. col(".") .. "\n" .. &relativenumber'
+
+RAW=$("$NVIM_SEND" "${SOCKET_ARGS[@]+"${SOCKET_ARGS[@]}"}" -e "$EXPR") || {
+  echo "Error: could not query Neovim state" >&2
+  exit 1
+}
+
+IFS=$'\n' read -r -d '' FILE LINE COL RELNUM <<< "$RAW" || true
+
+echo "file=${FILE}"
+echo "line=${LINE}"
+echo "col=${COL}"
+echo "relativenumber=${RELNUM}"
