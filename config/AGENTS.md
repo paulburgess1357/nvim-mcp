@@ -43,6 +43,11 @@ Returns structured editor state: current file, line, column, mode, modified
 flags, filetype, line count, cwd, relativenumber, window layout, modified
 buffer list, buffer count. Call this to understand what the user sees.
 
+**Line numbers:** Use `nvim_state` or read the file directly for accurate line
+numbers. Never try to count or parse line numbers from the terminal display —
+Neovim typically shows relative numbers in the gutter, which are easy to
+misread.
+
 ## nvim_recipes
 
 Quick reference for common operations. No arguments returns the top 9

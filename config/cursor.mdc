@@ -48,6 +48,11 @@ Call `nvim_state` to see: current file, cursor position, Vim mode, window
 layout, modified buffers, cwd, and more. Use this to understand what the user
 is looking at before acting.
 
+**Line numbers:** Use `nvim_state` or read the file directly for accurate line
+numbers. Never try to count or parse line numbers from the terminal display —
+Neovim typically shows relative numbers in the gutter, which are easy to
+misread.
+
 ## Recipes
 
 Call `nvim_recipes` with no arguments for a quick reference and list of
