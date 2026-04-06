@@ -43,19 +43,24 @@ See [`config/`](config/) for MCP client registration (Cursor, Claude Desktop, Cl
 
 ## Manual testing
 
-Open Neovim, then paste any of these into your AI assistant to verify the MCP server is working:
+Open Neovim, then copy-paste the block below into your AI assistant to verify the MCP server end-to-end:
 
-1. **Connect and show state** — "Connect to my Neovim instance and show me the current file, cursor position, and mode."
-2. **Open a file** — "Open `~/.bashrc` in Neovim."
-3. **Jump to a line** — "Go to line 10 in the current buffer."
-4. **Read a value** — "What is the current working directory in Neovim?"
-5. **Navigate with keys** — "Jump to the top of the file, then move down 5 lines."
-6. **Split and navigate** — "Open a vertical split with `/tmp/test.txt`, then switch back to the original window."
-7. **Check modified buffers** — "Are there any unsaved buffers? List them."
-8. **Fold toggle** — "Toggle the fold under the cursor."
-9. **Search** — "Search for the word 'function' in the current buffer."
-10. **Close buffer** — "Close the current buffer without saving."
-11. **Show recipes** — "Show me the LSP recipes for Neovim."
+```
+Run through these tests one at a time. After each test, tell me what happened
+and wait for my OK before moving to the next one.
+
+1. Connect to my Neovim instance and show me the current file, cursor position, and mode.
+2. Open ~/.bashrc in Neovim.
+3. Go to line 10 in the current buffer.
+4. What is the current working directory in Neovim?
+5. Jump to the top of the file, then move down 5 lines.
+6. Open a vertical split with /tmp/test.txt, then switch back to the original window.
+7. Are there any unsaved buffers? List them.
+8. Toggle the fold under the cursor.
+9. Search for the word "function" in the current buffer.
+10. Close the current buffer without saving.
+11. Show me the LSP recipes for Neovim.
+```
 
 ## Requirements
 
