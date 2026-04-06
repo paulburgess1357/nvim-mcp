@@ -50,16 +50,17 @@ Run through these tests one at a time. After each test, tell me what happened
 and wait for my OK before moving to the next one.
 
 1. Connect to my Neovim instance and show me the current file, cursor position, and mode.
-2. Open ~/.bashrc in Neovim.
-3. Go to line 10 in the current buffer.
-4. What is the current working directory in Neovim?
-5. Jump to the top of the file, then move down 5 lines.
-6. Open a vertical split with /tmp/test.txt, then switch back to the original window.
-7. Are there any unsaved buffers? List them.
-8. Toggle the fold under the cursor.
-9. Search for the word "function" in the current buffer.
-10. Close the current buffer without saving.
-11. Show me the LSP recipes for Neovim.
+2. Create a new file called /tmp/nvim-mcp-test.py and add a few lines of Python to it (a function, a comment, a print statement).
+3. Save the file, then tell me the total line count.
+4. Go to line 1, then jump to the last line. Tell me the cursor position after each move.
+5. What is the current working directory in Neovim?
+6. Open a vertical split with /tmp/nvim-mcp-test2.py, write a short function in it, and save it.
+7. Switch back to the original window and confirm which file is shown.
+8. Add a comment above the first function in the current file and save.
+9. Are there any unsaved buffers? List all open buffers.
+10. Search for the word "def" in the current buffer. Tell me which lines match.
+11. Close the current buffer without saving, then close the remaining buffer.
+12. Show me the LSP recipes for Neovim.
 ```
 
 ## Requirements
