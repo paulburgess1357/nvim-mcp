@@ -22,7 +22,7 @@ uvx nvim-mcp
 
 ## Quick start
 
-1. Start Neovim (it listens on an RPC socket by default).
+1. Start Neovim (it listens on an RPC socket by default) — this works in any terminal, including the integrated terminal in Cursor, VS Code, or similar editors.
 2. Set up your MCP client and agent rules — see [`config/`](config/) for everything you need.
 3. The assistant can now control Neovim through 4 tools.
 
