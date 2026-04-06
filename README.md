@@ -41,6 +41,22 @@ One Neovim instance running? Tools auto-connect. Multiple? `nvim_connect` lists 
 
 See [`config/`](config/) for MCP client registration (Cursor, Claude Desktop, Claude CLI) and example agent rule files.
 
+## Manual testing
+
+Open Neovim, then paste any of these into your AI assistant to verify the MCP server is working:
+
+1. **Connect and show state** — "Connect to my Neovim instance and show me the current file, cursor position, and mode."
+2. **Open a file** — "Open `~/.bashrc` in Neovim."
+3. **Jump to a line** — "Go to line 10 in the current buffer."
+4. **Read a value** — "What is the current working directory in Neovim?"
+5. **Navigate with keys** — "Jump to the top of the file, then move down 5 lines."
+6. **Split and navigate** — "Open a vertical split with `/tmp/test.txt`, then switch back to the original window."
+7. **Check modified buffers** — "Are there any unsaved buffers? List them."
+8. **Fold toggle** — "Toggle the fold under the cursor."
+9. **Search** — "Search for the word 'function' in the current buffer."
+10. **Close buffer** — "Close the current buffer without saving."
+11. **Show recipes** — "Show me the LSP recipes for Neovim."
+
 ## Requirements
 
 - Python ≥ 3.10
