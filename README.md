@@ -6,6 +6,8 @@
 
 **Platforms:** Linux and macOS only.
 
+https://github.com/user-attachments/assets/a546b3d5-082e-4f3d-aaaf-e94d997d506a
+
 ## Install
 
 ```bash
