@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "nvim-mcp"
 version = "0.1.1"
-description = "MCP server for AI-assisted control of Neovim via pynvim"
+description = "MCP server for AI-assisted control of Neovim via msgpack-RPC"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
@@ -27,7 +27,7 @@ classifiers = [
 ]
 dependencies = [
     "mcp[cli]",
-    "pynvim",
+    "msgpack>=1.0",
 ]
 
 [project.scripts]

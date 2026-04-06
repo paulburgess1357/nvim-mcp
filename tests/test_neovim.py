@@ -1,12 +1,11 @@
-"""Tests for NeovimManager with mocked pynvim — no real Neovim required."""
+"""Tests for NeovimManager with mocked NvimClient — no real Neovim required."""
 
 import asyncio
 from unittest.mock import MagicMock, patch
 
-import pynvim
 import pytest
 
-from nvim_mcp.neovim import NeovimManager, NvimInstance
+from nvim_mcp.neovim import NeovimManager, NvimClient, NvimError, NvimInstance
 
 
 def _make_instance(idx: int = 0) -> NvimInstance:
@@ -19,7 +18,7 @@ def _make_instance(idx: int = 0) -> NvimInstance:
 
 
 def _make_mock_nvim() -> MagicMock:
-    mock = MagicMock(spec=pynvim.Nvim)
+    mock = MagicMock(spec=NvimClient)
     mock.exec_lua.return_value = {"output": "", "errmsg": ""}
     return mock
 
@@ -34,7 +33,7 @@ class TestSingleInstanceAutoConnect:
         with (
             patch.object(NeovimManager, "_all_sockets", return_value=[inst.socket_path]),
             patch.object(NeovimManager, "_probe_socket", return_value=inst),
-            patch("pynvim.attach", return_value=mock_nvim),
+            patch.object(NvimClient, "connect", return_value=mock_nvim),
         ):
             result = asyncio.run(mgr.send("w", "command"))
 
@@ -80,7 +79,7 @@ class TestMultiInstanceListing:
                 return_value=[i.socket_path for i in instances],
             ),
             patch.object(NeovimManager, "_probe_socket", side_effect=instances),
-            patch("pynvim.attach", return_value=mock_nvim),
+            patch.object(NvimClient, "connect", return_value=mock_nvim),
         ):
             result = asyncio.run(mgr.connect(index=1))
 
@@ -116,7 +115,7 @@ class TestSendModes:
 
     def test_eval_nvim_error(self):
         mgr, mock_nvim = self._connected_manager()
-        mock_nvim.eval.side_effect = pynvim.NvimError("E15: Invalid expression")
+        mock_nvim.eval.side_effect = NvimError("E15: Invalid expression")
         result = asyncio.run(mgr.send("bad expr", "eval"))
         assert "Error:" in result
         assert "E15" in result
@@ -132,17 +131,7 @@ class TestReconnect:
         mgr._nvim = mock_nvim_old
         mgr._socket_path = "/tmp/nvim.0/0"
 
-        call_count = 0
-
-        def _send_sync_side_effect(input_str, mode):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                raise OSError("Broken pipe")
-            mgr._nvim = mock_nvim_new
-            return mock_nvim_new.exec_lua.return_value
-
-        with patch("pynvim.attach", return_value=mock_nvim_new):
+        with patch.object(NvimClient, "connect", return_value=mock_nvim_new):
             mock_nvim_old.exec_lua.side_effect = OSError("Broken pipe")
             mock_nvim_new.exec_lua.return_value = {"output": "after reconnect", "errmsg": ""}
             result = asyncio.run(mgr.send("w", "command"))
@@ -166,11 +155,11 @@ class TestIsConnectionError:
         assert NeovimManager._is_connection_error(exc) is expected
 
     def test_nvim_error_with_connection_keyword(self):
-        err = pynvim.NvimError("connection closed")
+        err = NvimError("connection closed")
         assert NeovimManager._is_connection_error(err) is True
 
     def test_nvim_error_without_connection_keyword(self):
-        err = pynvim.NvimError("E15: Invalid expression")
+        err = NvimError("E15: Invalid expression")
         assert NeovimManager._is_connection_error(err) is False
 
 

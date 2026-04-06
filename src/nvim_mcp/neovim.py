@@ -4,12 +4,94 @@ from __future__ import annotations
 
 import asyncio
 import os
+import socket
 import stat
 import subprocess
 import time
 from dataclasses import dataclass
+from typing import Any
 
-import pynvim
+import msgpack
+
+_CONNECT_TIMEOUT = 5.0
+
+
+class NvimError(Exception):
+    """Error from Neovim or the msgpack-RPC connection."""
+
+
+def _format_rpc_error(error: Any) -> str:
+    """Extract a human-readable message from a msgpack-RPC error value.
+
+    Neovim sends errors as ``[error_type, error_message]``.
+    """
+    if isinstance(error, (list, tuple)) and len(error) >= 2:
+        return str(error[1])
+    return str(error)
+
+
+class NvimClient:
+    """Synchronous msgpack-RPC client for Neovim's Unix socket API.
+
+    Speaks the msgpack-RPC wire protocol (request/response only) directly over
+    Neovim's Unix socket.  No plugin-host machinery, no event loop — just the
+    three RPC methods this project needs.
+    """
+
+    def __init__(self, sock: socket.socket) -> None:
+        self._sock = sock
+        self._unpacker = msgpack.Unpacker(raw=False, strict_map_key=False)
+        self._next_msgid = 0
+
+    @classmethod
+    def connect(cls, path: str, timeout: float = _CONNECT_TIMEOUT) -> NvimClient:
+        """Open a Unix-socket connection to Neovim at *path*."""
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        try:
+            sock.connect(path)
+        except Exception:
+            sock.close()
+            raise
+        return cls(sock)
+
+    def request(self, method: str, *args: Any) -> Any:
+        """Send an RPC request and block until the matching response arrives."""
+        self._next_msgid += 1
+        msgid = self._next_msgid
+        self._sock.sendall(msgpack.packb([0, msgid, method, list(args)]))
+        return self._read_response(msgid)
+
+    def _read_response(self, expected_msgid: int) -> Any:
+        while True:
+            data = self._sock.recv(65536)
+            if not data:
+                raise NvimError("Connection closed by Neovim")
+            self._unpacker.feed(data)
+            for msg in self._unpacker:
+                if not isinstance(msg, (list, tuple)) or len(msg) < 4:
+                    continue
+                msg_type, rmsgid, error, result = msg[0], msg[1], msg[2], msg[3]
+                if msg_type != 1 or rmsgid != expected_msgid:
+                    continue
+                if error is not None:
+                    raise NvimError(_format_rpc_error(error))
+                return result
+
+    def exec_lua(self, code: str, *args: Any) -> Any:
+        return self.request("nvim_exec_lua", code, list(args))
+
+    def eval(self, expr: str) -> Any:
+        return self.request("nvim_eval", expr)
+
+    def input(self, keys: str) -> int:
+        return self.request("nvim_input", keys)
+
+    def close(self) -> None:
+        try:
+            self._sock.close()
+        except OSError:
+            pass
 
 
 @dataclass
@@ -69,7 +151,7 @@ return {output = output, errmsg = errmsg}
 
 class NeovimManager:
     def __init__(self) -> None:
-        self._nvim: pynvim.Nvim | None = None
+        self._nvim: NvimClient | None = None
         self._socket_path: str | None = None
         self._lock = asyncio.Lock()
         self._discovery_cache: tuple[float, list[NvimInstance]] | None = None
@@ -85,18 +167,16 @@ class NeovimManager:
 
         candidates = self._all_sockets()
 
-        async def _probe_with_timeout(sock: str) -> NvimInstance | None:
+        async def _probe(sock: str) -> NvimInstance | None:
             try:
                 return await asyncio.wait_for(
                     asyncio.to_thread(self._probe_socket, sock),
-                    timeout=5.0,
+                    timeout=_CONNECT_TIMEOUT,
                 )
-            except (asyncio.TimeoutError, Exception):
+            except Exception:
                 return None
 
-        results = await asyncio.gather(
-            *(_probe_with_timeout(s) for s in candidates)
-        )
+        results = await asyncio.gather(*(_probe(s) for s in candidates))
         instances = [r for r in results if r is not None]
         self._discovery_cache = (time.monotonic(), instances)
         return instances
@@ -136,15 +216,10 @@ class NeovimManager:
 
         async with self._lock:
             try:
-                nvim = await asyncio.wait_for(
-                    asyncio.to_thread(pynvim.attach, "socket", path=target),
-                    timeout=5.0,
-                )
+                self._nvim = await self._connect_to(target)
+                self._socket_path = target
             except (asyncio.TimeoutError, OSError) as e:
                 return f"Error: could not connect to {target}: {e}"
-
-            self._nvim = nvim
-            self._socket_path = target
 
             try:
                 state = await asyncio.to_thread(self._get_state_sync)
@@ -164,13 +239,7 @@ class NeovimManager:
                 err = await self._auto_connect_unlocked()
                 if err is not None:
                     return err
-            try:
-                return await asyncio.to_thread(self._send_sync, input, mode)
-            except (OSError, pynvim.NvimError) as e:
-                if not self._is_connection_error(e):
-                    raise
-                await self._reconnect_unlocked()
-                return await asyncio.to_thread(self._send_sync, input, mode)
+            return await self._retry_on_disconnect(self._send_sync, input, mode)
 
     def _send_sync(self, input: str, mode: str) -> str:
         assert self._nvim is not None
@@ -190,7 +259,7 @@ class NeovimManager:
             try:
                 result = self._nvim.eval(input)
                 return str(result)
-            except pynvim.NvimError as e:
+            except NvimError as e:
                 if self._is_connection_error(e):
                     raise
                 return f"Error: {e}"
@@ -209,25 +278,24 @@ class NeovimManager:
                 err = await self._auto_connect_unlocked()
                 if err is not None:
                     raise RuntimeError(err)
-            try:
-                return await asyncio.to_thread(self._get_state_sync)
-            except (OSError, pynvim.NvimError) as e:
-                if not self._is_connection_error(e):
-                    raise
-                await self._reconnect_unlocked()
-                return await asyncio.to_thread(self._get_state_sync)
+            return await self._retry_on_disconnect(self._get_state_sync)
 
     def _get_state_sync(self) -> dict:
         assert self._nvim is not None
         return self._nvim.exec_lua(_GET_STATE_LUA)
 
-    # -- Auto-connect (called with lock held) --------------------------------
+    # -- Connection helpers (called with lock held) --------------------------
+
+    async def _connect_to(self, path: str) -> NvimClient:
+        return await asyncio.wait_for(
+            asyncio.to_thread(NvimClient.connect, path),
+            timeout=_CONNECT_TIMEOUT,
+        )
 
     async def _auto_connect_unlocked(self) -> str | None:
         """Auto-connect when a single instance exists.
 
-        Returns an error message if connection fails, None on success.
-        Must be called with ``self._lock`` held.
+        Returns an error message on failure, None on success.
         """
         instances = await self.discover()
         if len(instances) == 0:
@@ -240,45 +308,40 @@ class NeovimManager:
 
         target = instances[0].socket_path
         try:
-            nvim = await asyncio.wait_for(
-                asyncio.to_thread(pynvim.attach, "socket", path=target),
-                timeout=5.0,
-            )
+            self._nvim = await self._connect_to(target)
+            self._socket_path = target
         except (asyncio.TimeoutError, OSError) as e:
             return f"Error: could not auto-connect to {target}: {e}"
-
-        self._nvim = nvim
-        self._socket_path = target
         return None
 
-    # -- Reconnect (called with lock held) -----------------------------------
-
     async def _reconnect_unlocked(self) -> None:
-        """Re-attach to the last-known socket.
-
-        Must be called with ``self._lock`` held.
-        """
+        """Re-attach to the last-known socket."""
         if self._nvim is not None:
             try:
                 self._nvim.close()
             except Exception:
                 pass
-        self._nvim = None
+            self._nvim = None
 
         if self._socket_path is None:
             raise RuntimeError("Cannot reconnect: no previous socket path.")
 
         try:
-            self._nvim = await asyncio.wait_for(
-                asyncio.to_thread(
-                    pynvim.attach, "socket", path=self._socket_path
-                ),
-                timeout=5.0,
-            )
+            self._nvim = await self._connect_to(self._socket_path)
         except (asyncio.TimeoutError, OSError) as e:
             raise RuntimeError(
                 f"Reconnect to {self._socket_path} failed: {e}"
             ) from e
+
+    async def _retry_on_disconnect(self, fn, *args):
+        """Run *fn* in a thread; on connection error, reconnect and retry once."""
+        try:
+            return await asyncio.to_thread(fn, *args)
+        except (OSError, NvimError) as e:
+            if not self._is_connection_error(e):
+                raise
+            await self._reconnect_unlocked()
+            return await asyncio.to_thread(fn, *args)
 
     # -- Socket discovery (synchronous) --------------------------------------
 
@@ -346,7 +409,7 @@ class NeovimManager:
     @staticmethod
     def _probe_socket(sock: str) -> NvimInstance | None:
         try:
-            nvim = pynvim.attach("socket", path=sock)
+            nvim = NvimClient.connect(sock)
         except Exception:
             return None
         try:
@@ -400,16 +463,9 @@ class NeovimManager:
 
     @staticmethod
     def _is_connection_error(e: Exception) -> bool:
-        if isinstance(e, (
-            BrokenPipeError,
-            ConnectionRefusedError,
-            ConnectionResetError,
-            ConnectionAbortedError,
-        )):
+        if isinstance(e, OSError):
             return True
-        if isinstance(e, OSError) and not isinstance(e, pynvim.NvimError):
-            return True
-        if isinstance(e, pynvim.NvimError):
+        if isinstance(e, NvimError):
             msg = str(e).lower()
             return any(
                 kw in msg
