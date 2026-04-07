@@ -1,3 +1,4 @@
+# nvim-mcp: MCP server for AI-assisted control of Neovim via msgpack-RPC
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

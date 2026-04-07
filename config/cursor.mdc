@@ -5,66 +5,28 @@ alwaysApply: true
 
 # Neovim via nvim-mcp
 
-The user edits code in **Neovim**. You have full access to their editor through
-the nvim-mcp tools.
+The user edits code in Neovim. You control it through nvim-mcp tools.
+You already know Vim — use that knowledge. `nvim_recipes` is a cheat sheet,
+not a limit.
 
-## nvim_send — the universal interface
+## nvim_send modes
 
-`nvim_send` is your primary tool. You already know Vim — use that knowledge.
-Any ex command, any Vimscript expression, any key sequence you know will work
-through this tool. The recipes (`nvim_recipes`) are a cheat sheet, not a limit.
+- **command** (default) — ex command, no leading `:`.
+- **eval** — evaluate expression, return result.
+- **keys** — keystrokes. Esc is prepended automatically, so multi-mode
+  sequences must be one call: `"17GVG"` not `"17GV"` then `"G"`.
 
-Three modes:
+## Rules
 
-- **command** (default) — any ex command, no leading `:`.
-  `nvim_send(input="e /path/to/file")`, `nvim_send(input="42")`,
-  `nvim_send(input="lua vim.lsp.buf.definition()")`
-- **eval** — evaluate a Vimscript expression, get the result back.
-  `nvim_send(input="getcwd()")`, `nvim_send(input="line('$')")`
-- **keys** — send normal-mode keystrokes (Esc is prepended automatically).
-  `nvim_send(input="gg")`, `nvim_send(input="za")`
-
-If you need to do something in Neovim and you know the Vim command for it,
-just use `nvim_send`. Don't limit yourself to what's in the recipes.
-
-## Editing boundary
-
-**You never edit text through Neovim.** Edit files on disk with your own tools,
-then tell Neovim to reload:
-
-```
-nvim_send(input="checktime", mode="command")
-```
-
-Always call `checktime` after modifying any file that might be open in Neovim.
-
-Neovim is for **navigation**, **state awareness**, **LSP operations**, and
-**Vim-specific queries** (marks, registers, folds, quickfix). Not for text
-changes.
-
-## Reading editor state
-
-Call `nvim_state` to see: current file, cursor position, Vim mode, window
-layout, modified buffers, cwd, and more. Use this to understand what the user
-is looking at before acting.
-
-**Line numbers:** Use `nvim_state` or read the file directly for accurate line
-numbers. Never try to count or parse line numbers from the terminal display —
-Neovim typically shows relative numbers in the gutter, which are easy to
-misread.
-
-## Recipes
-
-Call `nvim_recipes` with no arguments for a quick reference and list of
-categories. Pass a category name for full details. Categories cover files,
-navigation, buffers, windows, marks, registers, folds, and LSP.
-
-These are handy reminders — but `nvim_send` can do anything Vim can do, not
-just what's in the recipes.
+1. **Never edit text through Neovim.** Edit on disk, then `checktime`.
+2. **Use `nvim_state` before acting** to see file, cursor, mode, and windows.
+3. **Never read line numbers from the terminal display** — use `nvim_state`
+   or read the file directly.
+4. **Preserve the user's active window.** If the terminal is active and you
+   need to act on a file window, switch with `wincmd p`, act, then switch
+   back. Disk edits only need `checktime` — no window switch.
 
 ## Multi-instance
 
-If the user has multiple Neovim instances, `nvim_connect` lists them.
-**Always ask the user which instance they mean** before connecting — don't
-guess. Present the list (cwd and open file for each) so they can pick.
-Connect with `index=N`, `socket_path="..."`, or `terminal_pid=...`.
+Multiple Neovim instances: `nvim_connect` lists them. Ask the user which
+one — don't guess.

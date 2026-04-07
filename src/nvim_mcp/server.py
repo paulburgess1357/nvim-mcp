@@ -44,6 +44,10 @@ async def nvim_send(
     - command: Run ex command without leading ':'. E.g. "e /path/to/file", "w", "42"
     - eval: Evaluate expression, return result. E.g. "getcwd()", "line('$')"
     - keys: Send keystrokes for navigation. E.g. "gg", "G", "za"
+      Esc is prepended automatically to ensure normal mode. This means
+      sequences that depend on an intermediate mode (like visual selection)
+      MUST be sent in a single call — a second call prepends Esc and cancels
+      the mode. E.g. send "17GVG" in one call, NOT "17GV" then "G".
 
     Auto-connects if only one Neovim instance exists.
     """
