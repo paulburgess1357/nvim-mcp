@@ -19,16 +19,16 @@ not a limit.
 ## Rules
 
 1. **Never edit text through Neovim.** Edit on disk, then `checktime`.
-2. **Use `nvim_state` before acting** to see file, cursor, mode, windows,
-   and context lines around the cursor. In visual mode, context expands
-   around the selection and a `selection` range marks the highlighted lines.
-   After the first call, `nvim_send` returns state automatically — you
-   rarely need `nvim_state` again mid-conversation.
-3. **`nvim_send` returns `{"result": …, "state": …}` by default.** The `state`
-   matches `nvim_state`. Use `return_state=false` for the result string only.
-4. **Use context lines from state for line numbers** — don't guess from
-   memory or read from the terminal display. The `context.start_line` +
-   `context.lines` array tells you exactly which code is on which line.
+2. **Always call `nvim_state` before any action that depends on cursor
+   position, file, or mode.** The user may have moved between turns.
+   Never rely on previously cached state for cursor-dependent operations.
+3. **`nvim_send` returns `{"result": …, "state": …}` by default.** This
+   state is current only as of that call. Use `return_state=false` when
+   you only need the result string.
+4. **Context lines are prefixed with absolute line numbers** (e.g.
+   `"28:   code here"`). Use them directly — don't guess from memory
+   or read from the terminal display.
+   In visual mode, a `selection` range marks highlighted lines.
 5. **Preserve the user's active window.** If the terminal is active and you
    need to act on a file window, switch with `wincmd p`, act, then switch
    back. Disk edits only need `checktime` — no window switch.

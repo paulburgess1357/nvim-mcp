@@ -20,7 +20,7 @@ _MOCK_STATE = {
     "windows": [],
     "modified_buffers": [],
     "buffer_count": 1,
-    "context": {"start_line": 1, "lines": ["line 1", "line 2"]},
+    "context": {"lines": ["1: line 1", "2: line 2"]},
 }
 
 

@@ -159,14 +159,20 @@ if cur_mode == 'v' or cur_mode == 'V' or cur_mode == '\\22' then
         local s = math.max(1, sl - context_n)
         local e = math.min(total, el + context_n)
         local lines = vim.api.nvim_buf_get_lines(0, s - 1, e, false)
-        state.context = { start_line = s, lines = lines }
+        for i, l in ipairs(lines) do
+            lines[i] = (s + i - 1) .. ": " .. l
+        end
+        state.context = { lines = lines }
     end
 elseif context_n > 0 then
     local cursor = vim.fn.line('.')
     local s = math.max(1, cursor - context_n)
     local e = math.min(total, cursor + context_n)
     local lines = vim.api.nvim_buf_get_lines(0, s - 1, e, false)
-    state.context = { start_line = s, lines = lines }
+    for i, l in ipairs(lines) do
+        lines[i] = (s + i - 1) .. ": " .. l
+    end
+    state.context = { lines = lines }
 end
 return state
 """
