@@ -37,7 +37,8 @@ async def nvim_connect(
 async def nvim_send(
     input: str,
     mode: Literal["command", "eval", "keys"] = "command",
-) -> str:
+    return_state: bool = True,
+) -> str | dict:
     """Send input to Neovim.
 
     Modes:
@@ -50,8 +51,11 @@ async def nvim_send(
       the mode. E.g. send "17GVG" in one call, NOT "17GV" then "G".
 
     Auto-connects if only one Neovim instance exists.
+
+    Returns {"result": ..., "state": {...}} by default.
+    Set return_state=false to get only the command result string.
     """
-    return await manager.send(input=input, mode=mode)
+    return await manager.send(input=input, mode=mode, return_state=return_state)
 
 
 @mcp.tool()
@@ -59,7 +63,11 @@ async def nvim_state() -> dict:
     """Get structured Neovim state.
 
     Returns file, line, col, mode, modified status, filetype, total lines,
-    cwd, relativenumber, window layout, modified buffers, and buffer count.
+    cwd, relativenumber, window layout, modified buffers, buffer count, and
+    context (lines around the cursor or selection: start_line, lines). In
+    visual mode, also includes selection (start_line, start_col, end_line,
+    end_col) identifying which context lines are selected. Context span is
+    controlled by NVIM_MCP_CONTEXT_LINES (default 20; 0 disables).
     """
     return await manager.get_state()
 

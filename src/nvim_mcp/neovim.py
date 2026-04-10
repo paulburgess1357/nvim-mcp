@@ -14,6 +14,10 @@ from typing import Any
 import msgpack
 
 _CONNECT_TIMEOUT = 5.0
+try:
+    _CONTEXT_LINES = int(os.environ.get("NVIM_MCP_CONTEXT_LINES", "20"))
+except ValueError:
+    _CONTEXT_LINES = 20
 
 
 class NvimError(Exception):
@@ -103,6 +107,7 @@ class NvimInstance:
 
 
 _GET_STATE_LUA = """\
+local context_n = select(1, ...) or 20
 local wins = {}
 for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     local b = vim.api.nvim_win_get_buf(w)
@@ -122,20 +127,48 @@ for _, b in ipairs(vim.api.nvim_list_bufs()) do
         end
     end
 end
-return {
+local cur_mode = vim.fn.mode()
+local total = vim.fn.line('$')
+local state = {
     file = vim.fn.expand('%:p'),
     line = vim.fn.line('.'),
     col = vim.fn.col('.'),
-    mode = vim.fn.mode(),
+    mode = cur_mode,
     modified = vim.bo.modified,
     filetype = vim.bo.filetype,
-    total_lines = vim.fn.line('$'),
+    total_lines = total,
     cwd = vim.fn.getcwd(),
     relativenumber = vim.wo.relativenumber,
     windows = wins,
     modified_buffers = modified,
     buffer_count = buf_count,
 }
+if cur_mode == 'v' or cur_mode == 'V' or cur_mode == '\\22' then
+    local vpos = vim.fn.getpos('v')
+    local cpos = vim.fn.getpos('.')
+    local sl, sc = vpos[2], vpos[3]
+    local el, ec = cpos[2], cpos[3]
+    if sl > el or (sl == el and sc > ec) then
+        sl, sc, el, ec = el, ec, sl, sc
+    end
+    state.selection = {
+        start_line = sl, start_col = sc,
+        end_line = el, end_col = ec,
+    }
+    if context_n > 0 then
+        local s = math.max(1, sl - context_n)
+        local e = math.min(total, el + context_n)
+        local lines = vim.api.nvim_buf_get_lines(0, s - 1, e, false)
+        state.context = { start_line = s, lines = lines }
+    end
+elseif context_n > 0 then
+    local cursor = vim.fn.line('.')
+    local s = math.max(1, cursor - context_n)
+    local e = math.min(total, cursor + context_n)
+    local lines = vim.api.nvim_buf_get_lines(0, s - 1, e, false)
+    state.context = { start_line = s, lines = lines }
+end
+return state
 """
 
 _EXEC_COMMAND_LUA = """\
@@ -233,13 +266,22 @@ class NeovimManager:
 
     # -- Send ----------------------------------------------------------------
 
-    async def send(self, input: str, mode: str) -> str:
+    async def send(
+        self, input: str, mode: str, return_state: bool = True
+    ) -> str | dict:
         async with self._lock:
             if self._nvim is None:
                 err = await self._auto_connect_unlocked()
                 if err is not None:
-                    return err
-            return await self._retry_on_disconnect(self._send_sync, input, mode)
+                    return {"result": err, "state": None} if return_state else err
+            result = await self._retry_on_disconnect(self._send_sync, input, mode)
+            if return_state:
+                try:
+                    state = await asyncio.to_thread(self._get_state_sync)
+                except Exception:
+                    state = None
+                return {"result": result, "state": state}
+            return result
 
     def _send_sync(self, input: str, mode: str) -> str:
         assert self._nvim is not None
@@ -282,7 +324,7 @@ class NeovimManager:
 
     def _get_state_sync(self) -> dict:
         assert self._nvim is not None
-        return self._nvim.exec_lua(_GET_STATE_LUA)
+        return self._nvim.exec_lua(_GET_STATE_LUA, _CONTEXT_LINES)
 
     # -- Connection helpers (called with lock held) --------------------------
 
