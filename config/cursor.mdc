@@ -18,10 +18,15 @@ not a limit.
 
 ## Rules
 
+**⚠ CRITICAL: Call `nvim_state` at the START of every turn — before ANY
+nvim-mcp call, file read, or disk edit that touches a Neovim buffer.
+Never carry over cursor position or file identity from a previous turn.**
+
 1. **Never edit text through Neovim.** Edit on disk, then `checktime`.
-2. **`nvim_state` first, every time.** Before your first nvim-mcp tool call
-   or file edit in a Neovim buffer each turn, call `nvim_state`. The user
-   may have moved between turns — never rely on state from a previous turn.
+2. **`nvim_state` first, every time.** Call `nvim_state` before ANY action
+   that depends on cursor position, file identity, or buffer contents —
+   including disk edits to files open in Neovim. The user may have moved
+   between turns; never carry over position assumptions from a previous turn.
 3. **`nvim_send` returns `{"result": …, "state": …}` by default.** This
    state is current only as of that call. Use `return_state=false` when
    you only need the result string.
