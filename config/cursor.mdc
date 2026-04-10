@@ -19,9 +19,9 @@ not a limit.
 ## Rules
 
 1. **Never edit text through Neovim.** Edit on disk, then `checktime`.
-2. **Always call `nvim_state` before any action that depends on cursor
-   position, file, or mode.** The user may have moved between turns.
-   Never rely on previously cached state for cursor-dependent operations.
+2. **`nvim_state` first, every time.** Before your first nvim-mcp tool call
+   or file edit in a Neovim buffer each turn, call `nvim_state`. The user
+   may have moved between turns — never rely on state from a previous turn.
 3. **`nvim_send` returns `{"result": …, "state": …}` by default.** This
    state is current only as of that call. Use `return_state=false` when
    you only need the result string.
