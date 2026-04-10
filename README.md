@@ -6,7 +6,7 @@
 
 **Platforms:** Linux and macOS only.
 
-https://github.com/user-attachments/assets/a546b3d5-082e-4f3d-aaaf-e94d997d506a
+<video src="https://github.com/user-attachments/assets/d4a9267a-9e79-40ce-ac84-50411c84b608"></video>
 
 ## Install
 
