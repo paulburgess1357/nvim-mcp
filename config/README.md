@@ -1,18 +1,13 @@
 # Configuration
 
-This directory contains everything you need to set up nvim-mcp with your AI
-assistant.
-
 ## 1. Register the MCP server
 
-Your AI tool needs to know how to start nvim-mcp. Pick the setup that matches
-your client.
+Add nvim-mcp to your MCP client so it knows how to launch the server.
 
-### From PyPI
+<details>
+<summary><strong>Cursor</strong></summary>
 
-#### Cursor
-
-Add to `.cursor/mcp.json` (project or `~/.cursor/mcp.json` for global):
+Add to `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global):
 
 ```json
 {
@@ -25,56 +20,116 @@ Add to `.cursor/mcp.json` (project or `~/.cursor/mcp.json` for global):
 }
 ```
 
-#### Claude CLI
-
-```bash
-claude mcp add nvim-mcp -- uvx nvim-mcp
-```
-
-#### Claude Desktop / other clients
-
-Same pattern — command is `uvx`, args `["nvim-mcp"]`.
-
-### From a local clone (development)
-
-If you're developing nvim-mcp, point at the repo instead:
-
-#### Cursor
+From a local clone, use `uv run` instead:
 
 ```json
 {
   "mcpServers": {
     "nvim-mcp": {
       "command": "uv",
-      "args": ["run", "--directory", "/path/to/nvim-mcp", "nvim-mcp"]
+      "args": ["run", "--directory", "<path/to/nvim-mcp>", "nvim-mcp"]
     }
   }
 }
 ```
 
-#### Claude CLI
+</details>
+
+<details>
+<summary><strong>Claude Code</strong></summary>
 
 ```bash
-claude mcp add nvim-mcp -- uv run --directory /path/to/nvim-mcp nvim-mcp
+claude mcp add nvim-mcp -- uvx nvim-mcp
 ```
 
-## 2. Teach the assistant how to use it
+Add `--scope user` to make it global, or `--scope project` for the current project only.
 
-Registering the server gives the assistant access to the tools, but a rule file
-teaches it **when and how** to use them effectively. The files in this directory
-are examples you can copy and adapt:
+From a local clone:
 
-- **[cursor.mdc](cursor.mdc)** — Cursor rule. Copy to `.cursor/rules/` in your
-  project.
-- **[AGENTS.md](AGENTS.md)** — Generic agent rule for Claude Code, Codex, and
-  others. Copy to your project root (or wherever your tool reads agent
-  instructions).
+```bash
+claude mcp add nvim-mcp -- uv run --directory <path/to/nvim-mcp> nvim-mcp
+```
+
+</details>
+
+<details>
+<summary><strong>Claude Desktop</strong></summary>
+
+Add to `claude_desktop_config.json` ([location varies by OS](https://docs.anthropic.com/en/docs/agents-and-tools/mcp/quickstart#configure-claude-for-desktop)):
+
+```json
+{
+  "mcpServers": {
+    "nvim-mcp": {
+      "command": "uvx",
+      "args": ["nvim-mcp"]
+    }
+  }
+}
+```
+
+From a local clone:
+
+```json
+{
+  "mcpServers": {
+    "nvim-mcp": {
+      "command": "uv",
+      "args": ["run", "--directory", "<path/to/nvim-mcp>", "nvim-mcp"]
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><strong>Codex</strong></summary>
+
+```bash
+codex mcp add nvim-mcp -- uvx nvim-mcp
+```
+
+Or add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.nvim-mcp]
+command = "uvx"
+args = ["nvim-mcp"]
+```
+
+From a local clone:
+
+```bash
+codex mcp add nvim-mcp -- uv run --directory <path/to/nvim-mcp> nvim-mcp
+```
+
+Or in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.nvim-mcp]
+command = "uv"
+args = ["run", "--directory", "<path/to/nvim-mcp>", "nvim-mcp"]
+```
+
+</details>
+
+<details>
+<summary><strong>Other MCP clients</strong></summary>
+
+The command is `uvx`, the argument is `nvim-mcp`. From a local clone, use `uv run --directory <path/to/nvim-mcp> nvim-mcp` instead. Use whatever config format your client expects.
+
+</details>
+
+## 2. Add agent rules
+
+Registering the server gives the assistant the tools, but a rule file teaches
+it **when and how** to use them. Copy the one that matches your client into
+your project:
+
+- **[cursor.mdc](cursor.mdc)** — Cursor rule. Copy to `.cursor/rules/`.
+- **[AGENTS.md](AGENTS.md)** — Generic rule for Claude Code, Codex, and others.
+  Copy to your project root (or wherever your tool reads agent instructions).
 
 These are starting points. Adjust them to match your workflow — add
 project-specific conventions, change what's always-on vs. manual, etc.
-
-## Optional Environment variables
-
-| Variable | Effect |
-|----------|--------|
-| `NVIM_SOCKET_PATH` | Skip discovery and connect to this socket only. |
