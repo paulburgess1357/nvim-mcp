@@ -14,10 +14,10 @@ from typing import Any
 import msgpack
 
 _CONNECT_TIMEOUT = 5.0
-try:
-    _CONTEXT_LINES = int(os.environ.get("NVIM_MCP_CONTEXT_LINES", "20"))
-except ValueError:
-    _CONTEXT_LINES = 20
+_ACTIVE_CONTEXT_LINES = int(os.environ["NVIM_MCP_ACTIVE_CONTEXT_LINES"]) \
+    if "NVIM_MCP_ACTIVE_CONTEXT_LINES" in os.environ else 20
+_INACTIVE_CONTEXT_LINES = int(os.environ["NVIM_MCP_INACTIVE_CONTEXT_LINES"]) \
+    if "NVIM_MCP_INACTIVE_CONTEXT_LINES" in os.environ else 20
 
 
 class NvimError(Exception):
@@ -107,15 +107,57 @@ class NvimInstance:
 
 
 _GET_STATE_LUA = """\
-local context_n = select(1, ...) or 20
+local active_n = select(1, ...) or 20
+local inactive_n = select(2, ...) or active_n
+local cur_win = vim.api.nvim_get_current_win()
+local cur_mode = vim.fn.mode()
 local wins = {}
 for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     local b = vim.api.nvim_win_get_buf(w)
-    wins[#wins + 1] = {
+    local is_active = (w == cur_win)
+    local wline = vim.api.nvim_win_get_cursor(w)[1]
+    local wcol = vim.api.nvim_win_get_cursor(w)[2] + 1
+    local winfo = {
         file = vim.api.nvim_buf_get_name(b),
         modified = vim.bo[b].modified,
-        active = (w == vim.api.nvim_get_current_win()),
+        active = is_active,
+        line = wline,
+        col = wcol,
     }
+    local ctx_n = is_active and active_n or inactive_n
+    if is_active and (cur_mode == 'v' or cur_mode == 'V' or cur_mode == '\\22') then
+        local vpos = vim.fn.getpos('v')
+        local cpos = vim.fn.getpos('.')
+        local sl, sc = vpos[2], vpos[3]
+        local el, ec = cpos[2], cpos[3]
+        if sl > el or (sl == el and sc > ec) then
+            sl, sc, el, ec = el, ec, sl, sc
+        end
+        winfo.selection = {
+            start_line = sl, start_col = sc,
+            end_line = el, end_col = ec,
+        }
+        if ctx_n > 0 then
+            local total = vim.api.nvim_buf_line_count(b)
+            local s = math.max(1, sl - ctx_n)
+            local e = math.min(total, el + ctx_n)
+            local lines = vim.api.nvim_buf_get_lines(b, s - 1, e, false)
+            for i, l in ipairs(lines) do
+                lines[i] = (s + i - 1) .. ": " .. l
+            end
+            winfo.context = { lines = lines }
+        end
+    elseif ctx_n > 0 then
+        local total = vim.api.nvim_buf_line_count(b)
+        local s = math.max(1, wline - ctx_n)
+        local e = math.min(total, wline + ctx_n)
+        local lines = vim.api.nvim_buf_get_lines(b, s - 1, e, false)
+        for i, l in ipairs(lines) do
+            lines[i] = (s + i - 1) .. ": " .. l
+        end
+        winfo.context = { lines = lines }
+    end
+    wins[#wins + 1] = winfo
 end
 local modified = {}
 local buf_count = 0
@@ -127,54 +169,20 @@ for _, b in ipairs(vim.api.nvim_list_bufs()) do
         end
     end
 end
-local cur_mode = vim.fn.mode()
-local total = vim.fn.line('$')
-local state = {
+return {
     file = vim.fn.expand('%:p'),
     line = vim.fn.line('.'),
     col = vim.fn.col('.'),
     mode = cur_mode,
     modified = vim.bo.modified,
     filetype = vim.bo.filetype,
-    total_lines = total,
+    total_lines = vim.fn.line('$'),
     cwd = vim.fn.getcwd(),
     relativenumber = vim.wo.relativenumber,
     windows = wins,
     modified_buffers = modified,
     buffer_count = buf_count,
 }
-if cur_mode == 'v' or cur_mode == 'V' or cur_mode == '\\22' then
-    local vpos = vim.fn.getpos('v')
-    local cpos = vim.fn.getpos('.')
-    local sl, sc = vpos[2], vpos[3]
-    local el, ec = cpos[2], cpos[3]
-    if sl > el or (sl == el and sc > ec) then
-        sl, sc, el, ec = el, ec, sl, sc
-    end
-    state.selection = {
-        start_line = sl, start_col = sc,
-        end_line = el, end_col = ec,
-    }
-    if context_n > 0 then
-        local s = math.max(1, sl - context_n)
-        local e = math.min(total, el + context_n)
-        local lines = vim.api.nvim_buf_get_lines(0, s - 1, e, false)
-        for i, l in ipairs(lines) do
-            lines[i] = (s + i - 1) .. ": " .. l
-        end
-        state.context = { lines = lines }
-    end
-elseif context_n > 0 then
-    local cursor = vim.fn.line('.')
-    local s = math.max(1, cursor - context_n)
-    local e = math.min(total, cursor + context_n)
-    local lines = vim.api.nvim_buf_get_lines(0, s - 1, e, false)
-    for i, l in ipairs(lines) do
-        lines[i] = (s + i - 1) .. ": " .. l
-    end
-    state.context = { lines = lines }
-end
-return state
 """
 
 _EXEC_COMMAND_LUA = """\
@@ -330,7 +338,9 @@ class NeovimManager:
 
     def _get_state_sync(self) -> dict:
         assert self._nvim is not None
-        return self._nvim.exec_lua(_GET_STATE_LUA, _CONTEXT_LINES)
+        return self._nvim.exec_lua(
+            _GET_STATE_LUA, _ACTIVE_CONTEXT_LINES, _INACTIVE_CONTEXT_LINES
+        )
 
     # -- Connection helpers (called with lock held) --------------------------
 

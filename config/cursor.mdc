@@ -30,10 +30,11 @@ Never carry over cursor position or file identity from a previous turn.**
 3. **`nvim_send` returns `{"result": …, "state": …}` by default.** This
    state is current only as of that call. Use `return_state=false` when
    you only need the result string.
-4. **Context lines are prefixed with absolute line numbers** (e.g.
-   `"28:   code here"`). Use them directly — don't guess from memory
-   or read from the terminal display.
-   In visual mode, a `selection` range marks highlighted lines.
+4. **Each window has context lines prefixed with absolute line numbers**
+   (e.g. `"28:   code here"`). Use them directly — don't guess from memory
+   or read from the terminal display. The user's question almost always
+   relates to the active window; inactive windows provide background context.
+   In visual mode, the active window's entry includes a `selection` range.
 5. **Preserve the user's active window.** If the terminal is active and you
    need to act on a file window, switch with `wincmd p`, act, then switch
    back. Disk edits only need `checktime` — no window switch.

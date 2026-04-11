@@ -63,12 +63,16 @@ async def nvim_state() -> dict:
     """Get structured Neovim state.
 
     Returns file, line, col, mode, modified status, filetype, total lines,
-    cwd, relativenumber, window layout, modified buffers, buffer count, and
-    context (lines around the cursor or selection, each prefixed with its
-    absolute line number). In visual mode, also includes selection
-    (start_line, start_col, end_line, end_col) identifying which context
-    lines are selected. Context span is controlled by NVIM_MCP_CONTEXT_LINES
-    (default 20; 0 disables).
+    cwd, relativenumber, window list, modified buffers, and buffer count.
+
+    Each window entry includes file, modified, active, line, col, and context
+    (lines around that window's cursor, each prefixed with its absolute line
+    number). The active window in visual mode also includes selection
+    (start_line, start_col, end_line, end_col).
+
+    Context spans: NVIM_MCP_ACTIVE_CONTEXT_LINES (default 20) for the active
+    window, NVIM_MCP_INACTIVE_CONTEXT_LINES (default 20) for others. Set
+    either to 0 to disable.
     """
     return await manager.get_state()
 

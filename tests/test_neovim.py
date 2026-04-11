@@ -17,10 +17,18 @@ _MOCK_STATE = {
     "total_lines": 10,
     "cwd": "/home/user/project",
     "relativenumber": False,
-    "windows": [],
+    "windows": [
+        {
+            "file": "test.py",
+            "modified": False,
+            "active": True,
+            "line": 1,
+            "col": 1,
+            "context": {"lines": ["1: line 1", "2: line 2"]},
+        },
+    ],
     "modified_buffers": [],
     "buffer_count": 1,
-    "context": {"lines": ["1: line 1", "2: line 2"]},
 }
 
 

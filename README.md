@@ -33,7 +33,7 @@ It talks to Neovim directly over its default **Unix socket** using msgpack-RPC a
 
 | Tool               | Purpose                                                                                                                                                                                                                                                                            |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`nvim_state`**   | Real-time snapshot of your session: current file, cursor position, mode, window layout, modified buffers, cwd, and **context lines** around the cursor (or visual selection), each prefixed with its absolute line number. This is how the assistant knows what you're looking at.   |
+| **`nvim_state`**   | Real-time snapshot of your session: current file, cursor position, mode, modified buffers, cwd, and per-window details (file, cursor, **context lines**, and visual selection for the active window), each prefixed with its absolute line number. This is how the assistant knows what you're looking at. |
 | **`nvim_send`**    | Do anything in Neovim. Three modes: `command` (ex commands), `eval` (Vimscript expressions), `keys` (keystrokes). Returns `{"result": ..., "state": {...}}` by default; set `return_state=false` for the result string only.                                                       |
 | **`nvim_connect`** | Connect to a Neovim instance. Auto-connects when only one exists; lists all when multiple are found.                                                                                                                                                                               |
 | **`nvim_recipes`** | Built-in cheat sheet the assistant consults to know how to drive Neovim. Categories: files, navigation, buffers, windows, marks, registers, folds, LSP.                                                                                                                            |
@@ -44,10 +44,11 @@ One Neovim instance running? Tools auto-connect. Multiple? `nvim_connect` lists 
 
 ## Environment
 
-| Variable                 | Default           | Description                                                        |
-| ------------------------ | ----------------- | ------------------------------------------------------------------ |
-| `NVIM_SOCKET_PATH`       | _(auto-discover)_ | Skip discovery; connect directly to this socket.                   |
-| `NVIM_MCP_CONTEXT_LINES` | `20`              | Lines above/below cursor included in state. Set to `0` to disable. |
+| Variable                          | Default           | Description                                                                    |
+| --------------------------------- | ----------------- | ------------------------------------------------------------------------------ |
+| `NVIM_SOCKET_PATH`                | _(auto-discover)_ | Skip discovery; connect directly to this socket.                               |
+| `NVIM_MCP_ACTIVE_CONTEXT_LINES`   | `20`              | Lines above/below cursor in the active window. Set to `0` to disable.          |
+| `NVIM_MCP_INACTIVE_CONTEXT_LINES` | `20`              | Lines above/below cursor in inactive windows. Set to `0` to disable.           |
 
 ## Demo
 
