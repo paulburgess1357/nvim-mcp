@@ -15,6 +15,7 @@ not a limit.
 - **eval** — evaluate expression, return result.
 - **keys** — keystrokes. Esc is prepended automatically, so multi-mode
   sequences must be one call: `"17GVG"` not `"17GV"` then `"G"`.
+  Never put ex commands (e.g. `wincmd`) in keys mode — use separate calls.
 
 ## Rules
 
