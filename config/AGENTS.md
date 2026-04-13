@@ -12,10 +12,8 @@ Never carry over cursor position or file identity from a previous turn.**
 1. **Never edit text through Neovim.** Edit on disk, then `:checktime`.
 2. **`nvim_state` first, every time.** The user may have moved between
    turns; never assume position from a previous turn.
-3. **Each window has context lines prefixed with absolute line numbers.**
-   Use them directly — don't guess from memory or read from the terminal
-   display. The user's question almost always relates to the active *file*
-   window (buftype ""), not a terminal window.
+3. **The user's question almost always relates to the active file window**
+   (buftype ""), not a terminal or special buffer.
 4. **Preserve the user's active window.** If the terminal is active and you
    need to act on a file window, switch with `wincmd p`, act, then switch
    back. Disk edits only need `checktime` — no window switch.

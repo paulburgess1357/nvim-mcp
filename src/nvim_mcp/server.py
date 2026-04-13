@@ -76,16 +76,16 @@ async def nvim_state() -> dict:
 
     windows — list of visible windows (current tab only). The active
     window is always first. Each entry:
-      file, filetype, total_lines, modified, buftype, active, line, col,
-      context.
+      file, filetype, total_lines, modified, buftype, active, line, col.
       - buftype: "" for normal file buffers, "terminal" for :terminal,
         "quickfix", "help", etc. for special buffers.
+      Optional per-window fields (present when applicable):
       - context: lines around that window's cursor, each prefixed with its
         absolute line number (e.g. "28:   code here").
-      - The active window in visual mode also includes selection
-        (start_line, start_col, end_line, end_col).
-      - folds: list of [start, end] closed fold ranges (only present when
-        folds exist). Lines inside closed folds are hidden from the user.
+      - selection: {start_line, start_col, end_line, end_col} in visual mode
+        (active window only).
+      - folds: list of [start, end] closed fold ranges. Lines inside closed
+        folds are hidden from the user.
 
     Context line counts are controlled by environment variables
     NVIM_MCP_ACTIVE_CONTEXT_LINES (default 20) and
