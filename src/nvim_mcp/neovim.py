@@ -141,6 +141,8 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     local wline, wcol = cursor[1], cursor[2] + 1
     local winfo = {
         file = vim.api.nvim_buf_get_name(b),
+        filetype = vim.bo[b].filetype,
+        total_lines = vim.api.nvim_buf_line_count(b),
         modified = vim.bo[b].modified,
         buftype = vim.bo[b].buftype,
         active = is_active,
@@ -166,7 +168,11 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     elseif ctx_n > 0 then
         winfo.context = get_context(b, wline, wline, ctx_n)
     end
-    wins[#wins + 1] = winfo
+    if is_active then
+        table.insert(wins, 1, winfo)
+    else
+        wins[#wins + 1] = winfo
+    end
 end
 local modified = {}
 local buf_count = 0
@@ -179,20 +185,14 @@ for _, b in ipairs(vim.api.nvim_list_bufs()) do
     end
 end
 return {
-    file = vim.fn.expand('%:p'),
-    line = vim.fn.line('.'),
-    col = vim.fn.col('.'),
     mode = cur_mode,
-    modified = vim.bo.modified,
-    filetype = vim.bo.filetype,
-    total_lines = vim.fn.line('$'),
     cwd = vim.fn.getcwd(),
     relativenumber = vim.wo.relativenumber,
-    windows = wins,
     modified_buffers = modified,
     buffer_count = buf_count,
     current_tab = vim.fn.tabpagenr(),
     tab_count = vim.fn.tabpagenr('$'),
+    windows = wins,
 }
 """
 

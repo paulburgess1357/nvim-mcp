@@ -71,12 +71,13 @@ async def nvim_send(
 async def nvim_state() -> dict:
     """Snapshot of the current Neovim session.
 
-    Top-level fields: file, line, col, mode, modified, filetype, total_lines,
-    cwd, relativenumber, modified_buffers, buffer_count, current_tab,
-    tab_count.
+    Top-level fields: mode, cwd, relativenumber, modified_buffers,
+    buffer_count, current_tab, tab_count.
 
-    windows — list of visible windows (current tab only). Each entry:
-      file, modified, buftype, active, line, col, context.
+    windows — list of visible windows (current tab only). The active
+    window is always first. Each entry:
+      file, filetype, total_lines, modified, buftype, active, line, col,
+      context.
       - buftype: "" for normal file buffers, "terminal" for :terminal,
         "quickfix", "help", etc. for special buffers.
       - context: lines around that window's cursor, each prefixed with its
