@@ -9,13 +9,14 @@ You already know Vim — use that knowledge.
 nvim-mcp call, file read, or disk edit that touches a Neovim buffer.
 Never carry over cursor position or file identity from a previous turn.**
 
-1. **Edit through the buffer when it has unsaved changes.** If
-   `nvim_state` lists a file in `modified_buffers`, use `nvim_buf_edit`
-   and `nvim_buf_read` — the disk version is stale. For unmodified
-   files, disk edits + `:checktime` are fine. If only one file was
-   edited on disk and it's not the active buffer, switch to it.
-2. **If you don't have disk edit tools, use `nvim_buf_edit` for all
-   edits.** It works the same way regardless of buffer state.
+1. **Use `nvim_buf_edit` for modified buffers.** If `nvim_state` lists
+   a file in `modified_buffers`, the disk version is stale — use
+   `nvim_buf_edit` and `nvim_buf_read`. For unmodified files, disk
+   edits + `:checktime` work fine. No disk edit tools? Use
+   `nvim_buf_edit` for everything.
+2. **After a disk edit, show the result.** `:checktime` reloads buffers.
+   If only one file was edited and it's not the active buffer, switch
+   to it so the user can see the changes.
 3. **Check diagnostics when fixing code.** `nvim_state` includes a
    `diagnostics_summary` per window. Use `nvim_diagnostics` to get full
    details (file, line, severity, message) when you need them.
