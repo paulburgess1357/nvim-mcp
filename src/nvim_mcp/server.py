@@ -29,8 +29,7 @@ async def nvim_connect(
     - terminal_pid: find the Neovim instance whose process tree contains
       this PID (useful when Neovim runs inside a specific terminal).
 
-    Most tools auto-connect when a single instance exists, so explicit
-    connection is only needed with multiple instances.
+    Other tools auto-connect when a single instance exists.
     """
     return await manager.connect(
         socket_path=socket_path,
@@ -53,10 +52,11 @@ async def nvim_send(
     - eval: evaluate a Vimscript expression and return the result.
       E.g. "getcwd()", "line('$')", "expand('%:p')".
     - keys: send keystrokes. Esc is prepended automatically, so the input
-      always starts in normal mode. Multi-mode sequences MUST be a single
-      call — a second call would prepend Esc and cancel the prior mode.
-      E.g. send "17GVG" in one call, NOT "17GV" then "G".
-      Never use keys mode for ex commands (e.g. wincmd) — use command mode.
+      always starts in normal mode. A second call prepends Esc again,
+      cancelling any intermediate mode from the previous call. Multi-mode
+      sequences must be sent in a single call (e.g. "17GVG", not "17GV"
+      then "G"). Ex commands like wincmd do not work in keys mode; use
+      command mode for those.
 
     Returns {"result": ..., "state": {...}} by default, where state is
     the same structure as nvim_state (current at the moment the command
@@ -80,9 +80,7 @@ async def nvim_state() -> dict:
       - buftype: "" for normal file buffers, "terminal" for :terminal,
         "quickfix", "help", etc. for special buffers.
       - context: lines around that window's cursor, each prefixed with its
-        absolute line number (e.g. "28:   code here"). Use these line
-        numbers directly — they are the source of truth for cursor position
-        and surrounding code.
+        absolute line number (e.g. "28:   code here").
       - The active window in visual mode also includes selection
         (start_line, start_col, end_line, end_col).
 
