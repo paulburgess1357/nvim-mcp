@@ -35,6 +35,7 @@ It talks to Neovim directly over its default **Unix socket** using msgpack-RPC a
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`nvim_state`**      | Snapshot of the session: mode, cwd, open buffers, and per-window details (file, cursor, filetype, **context lines**, folds, visual selection, and **diagnostic summary**). |
 | **`nvim_diagnostics`**| Get LSP diagnostics: file, line, col, severity, message, source. Optional file path to limit to one buffer.                                                                |
+| **`nvim_buf_edit`**   | Edit a buffer (in-memory, not disk). Find-and-replace with old_string/new_string, or set full content. Creates the buffer if not already open.                             |
 | **`nvim_buf_read`**   | Read lines from a buffer (in-memory, not disk). Supports optional line range.                                                                                              |
 | **`nvim_command`**    | Run ex commands (no leading `:`). Accepts a single string or a list. E.g. `"w"`, `"e /path"`, `"lua vim.print(...)"`, or `["wincmd p", "checktime", "wincmd p"]`.          |
 | **`nvim_keys`**       | Send keystrokes. E.g. `"gg"`, `"17GVG"`, `"za"`. Esc is prepended automatically.                                                                                          |

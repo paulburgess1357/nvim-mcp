@@ -80,6 +80,25 @@ async def nvim_diagnostics(file: str | None = None) -> list:
 
 
 @mcp.tool()
+async def nvim_buf_edit(
+    file: str,
+    new_string: str,
+    old_string: str | None = None,
+) -> dict:
+    """Edit a Neovim buffer (in-memory, not disk).
+
+    Provide old_string and new_string to find and replace text.
+    old_string must match exactly once. Omit old_string to set the
+    entire buffer content. Creates the buffer if not already open.
+
+    Auto-connects when exactly one Neovim instance is running.
+    """
+    return await manager.edit_buffer(
+        file=file, new_string=new_string, old_string=old_string
+    )
+
+
+@mcp.tool()
 async def nvim_buf_read(
     file: str,
     start_line: int | None = None,

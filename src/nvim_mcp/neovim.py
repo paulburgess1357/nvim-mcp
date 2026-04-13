@@ -262,6 +262,59 @@ end
 return result
 """
 
+_EDIT_BUF_LUA = """\
+local file, old_str, new_str = ...
+
+-- Find or create buffer
+local b = vim.fn.bufnr(file)
+if b == -1 then
+    b = vim.fn.bufadd(file)
+    vim.fn.bufload(b)
+end
+if not vim.api.nvim_buf_is_loaded(b) then
+    vim.fn.bufload(b)
+end
+
+-- Write mode: no old_str means set entire buffer content
+if old_str == nil or old_str == "" then
+    local new_lines = vim.split(new_str, "\n", {plain = true})
+    vim.api.nvim_buf_set_lines(b, 0, -1, false, new_lines)
+    return {total_lines = #new_lines}
+end
+
+-- Replace mode: find old_str in buffer, replace with new_str
+local lines = vim.api.nvim_buf_get_lines(b, 0, -1, false)
+local text = table.concat(lines, "\n")
+
+local s, e = string.find(text, old_str, 1, true)
+if not s then
+    return {error = "old_string not found in buffer"}
+end
+if string.find(text, old_str, e + 1, true) then
+    return {error = "old_string matches multiple locations; add context to make it unique"}
+end
+
+-- Compute affected line range (0-indexed)
+local before = text:sub(1, s - 1)
+local start_line = select(2, before:gsub("\n", ""))
+local end_line = start_line + select(2, old_str:gsub("\n", ""))
+
+-- Preserve text on start_line before match and on end_line after match
+local prefix = before:match("[^\n]*$") or ""
+local suffix = (text:sub(e + 1)):match("^[^\n]*") or ""
+
+local replacement = prefix .. new_str .. suffix
+local new_lines = vim.split(replacement, "\n", {plain = true})
+vim.api.nvim_buf_set_lines(b, start_line, end_line + 1, false, new_lines)
+
+return {
+    start_line = start_line + 1,
+    lines_removed = end_line - start_line + 1,
+    lines_added = #new_lines,
+    total_lines = vim.api.nvim_buf_line_count(b),
+}
+"""
+
 _READ_BUF_LUA = """\
 local file, start_line, end_line = ...
 local b = vim.fn.bufnr(file)
@@ -448,6 +501,32 @@ class NeovimManager:
     def _get_diagnostics_sync(self, file: str | None) -> list:
         assert self._nvim is not None
         return self._nvim.exec_lua(_GET_DIAGNOSTICS_LUA, file)
+
+    # -- Buffer edit ---------------------------------------------------------
+
+    async def edit_buffer(
+        self,
+        file: str,
+        new_string: str,
+        old_string: str | None = None,
+    ) -> dict:
+        async with self._lock:
+            if self._nvim is None:
+                err = await self._auto_connect_unlocked()
+                if err is not None:
+                    raise RuntimeError(err)
+            return await self._retry_on_disconnect(
+                self._edit_buf_sync, file, old_string, new_string
+            )
+
+    def _edit_buf_sync(
+        self,
+        file: str,
+        old_string: str | None,
+        new_string: str,
+    ) -> dict:
+        assert self._nvim is not None
+        return self._nvim.exec_lua(_EDIT_BUF_LUA, file, old_string, new_string)
 
     # -- Buffer read ---------------------------------------------------------
 
