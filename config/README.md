@@ -127,9 +127,9 @@ Registering the server gives the assistant the tools, but a rule file teaches
 it **when and how** to use them. Copy the one that matches your client into
 your project:
 
-- **[cursor.mdc](cursor.mdc)** — Cursor rule. Copy to `.cursor/rules/`.
-- **[AGENTS.md](AGENTS.md)** — Generic rule for Claude Code, Codex, and others.
+- **[AGENTS.md](AGENTS.md)** — Rule file for Claude Code, Codex, and others.
   Copy to your project root (or wherever your tool reads agent instructions).
+- **Cursor** — Run `./config/generate-mdc.sh` to create `nvim-mcp.mdc`, then
+  copy it to `.cursor/rules/` in your project.
 
-These are starting points. Adjust them to match your workflow — add
-project-specific conventions, change what's always-on vs. manual, etc.
+These are starting points. Adjust them to match your workflow.

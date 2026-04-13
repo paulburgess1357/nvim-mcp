@@ -26,7 +26,7 @@ It talks to Neovim directly over its default **Unix socket** using msgpack-RPC a
 
    See [`config/README.md`](config/README.md) for other clients (Claude CLI, Codex, etc.) or to run from a local clone.
 
-3. **Add agent rules** — registering the server gives the assistant the tools, but a rule file teaches it *when and how* to use them. Copy one from [`config/`](config/) into your project (`cursor.mdc` for Cursor, `AGENTS.md` for Claude Code / Codex / others).
+3. **Add agent rules** — registering the server gives the assistant the tools, but a rule file teaches it *when and how* to use them. Copy one from [`config/`](config/) into your project (`AGENTS.md` for Claude Code / Codex / others, or run `./config/generate-mdc.sh` for Cursor).
 4. **Start Neovim** — it listens on an RPC socket by default.
 
 ## Tools

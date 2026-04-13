@@ -95,6 +95,5 @@ async def nvim_state() -> dict:
     return await manager.get_state()
 
 
-
 def main() -> None:
     mcp.run(transport="stdio")
