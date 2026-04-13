@@ -68,6 +68,24 @@ async def nvim_keys(keys: str) -> str:
 
 
 @mcp.tool()
+async def nvim_buf_read(
+    file: str,
+    start_line: int | None = None,
+    end_line: int | None = None,
+) -> dict:
+    """Read lines from a Neovim buffer (in-memory, not disk).
+
+    Returns lines prefixed with line numbers. Optional start_line/end_line
+    to read a range. The file must be open in Neovim.
+
+    Auto-connects when exactly one Neovim instance is running.
+    """
+    return await manager.read_buffer(
+        file=file, start_line=start_line, end_line=end_line
+    )
+
+
+@mcp.tool()
 async def nvim_state() -> dict:
     """Snapshot of the current Neovim session.
 

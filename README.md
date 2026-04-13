@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/nvim-mcp)](https://pypi.org/project/nvim-mcp/)
 
-**nvim-mcp** is an [MCP](https://modelcontextprotocol.io/) server that gives AI assistants (Cursor, Claude, and others) full access to a running **Neovim** session. The assistant sees what you see — cursor position, visible code, window layout, visual selections — and can act on it: run any ex command, send keystrokes, evaluate expressions, trigger LSP actions, or anything else Neovim can do.
+**nvim-mcp** is an [MCP](https://modelcontextprotocol.io/) server that gives AI assistants (Cursor, Claude, and others) full access to a running **Neovim** session. The assistant sees what you see — cursor position, visible code, window layout, visual selections — and can send keystrokes, run commands, or read buffer contents.
 
 It talks to Neovim directly over its default **Unix socket** using msgpack-RPC and discovers running instances automatically.
 
@@ -34,6 +34,7 @@ It talks to Neovim directly over its default **Unix socket** using msgpack-RPC a
 | Tool               | Purpose                                                                                                                                                                                                                                                                            |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`nvim_state`**   | Snapshot of the session: mode, cwd, and per-window details (file, cursor, filetype, **context lines**, folds, and visual selection), each context line prefixed with its absolute line number. |
+| **`nvim_buf_read`**| Read lines from a buffer (in-memory, not disk). Supports optional line range.                                                                                                                |
 | **`nvim_command`** | Run ex commands (no leading `:`). Accepts a single string or a list. E.g. `"w"`, `"e /path"`, `"lua vim.print(...)"`, or `["wincmd p", "checktime", "wincmd p"]`.                            |
 | **`nvim_keys`**    | Send keystrokes. E.g. `"gg"`, `"17GVG"`, `"za"`. Esc is prepended automatically.                                                                                                            |
 | **`nvim_connect`** | Connect to a Neovim instance. Auto-connects when only one exists; lists all when multiple are found.                                                                                         |

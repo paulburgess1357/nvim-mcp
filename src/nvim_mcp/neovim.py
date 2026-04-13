@@ -214,6 +214,22 @@ return {
 }
 """
 
+_READ_BUF_LUA = """\
+local file, start_line, end_line = ...
+local b = vim.fn.bufnr(file)
+if b == -1 then return {error = "Buffer not found: " .. tostring(file)} end
+local total = vim.api.nvim_buf_line_count(b)
+local s = start_line or 1
+local e = end_line or total
+if s < 1 then s = 1 end
+if e > total then e = total end
+local lines = vim.api.nvim_buf_get_lines(b, s - 1, e, false)
+for i, l in ipairs(lines) do
+    lines[i] = (s + i - 1) .. ": " .. l
+end
+return {lines = lines, total_lines = total}
+"""
+
 _EXEC_COMMAND_LUA = """\
 local input = ...
 vim.v.errmsg = ''
@@ -368,6 +384,32 @@ class NeovimManager:
         return self._nvim.exec_lua(
             _GET_STATE_LUA, _ACTIVE_CONTEXT_LINES, _INACTIVE_CONTEXT_LINES
         )
+
+    # -- Buffer read ---------------------------------------------------------
+
+    async def read_buffer(
+        self,
+        file: str,
+        start_line: int | None = None,
+        end_line: int | None = None,
+    ) -> dict:
+        async with self._lock:
+            if self._nvim is None:
+                err = await self._auto_connect_unlocked()
+                if err is not None:
+                    raise RuntimeError(err)
+            return await self._retry_on_disconnect(
+                self._read_buf_sync, file, start_line, end_line
+            )
+
+    def _read_buf_sync(
+        self,
+        file: str,
+        start_line: int | None,
+        end_line: int | None,
+    ) -> dict:
+        assert self._nvim is not None
+        return self._nvim.exec_lua(_READ_BUF_LUA, file, start_line, end_line)
 
     # -- Connection helpers (called with lock held) --------------------------
 
