@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
 from mcp.server.fastmcp import FastMCP
 
 from nvim_mcp.neovim import NeovimManager
@@ -39,24 +37,13 @@ async def nvim_connect(
 
 
 @mcp.tool()
-async def nvim_send(
-    input: str,
-    mode: Literal["command", "eval", "keys"] = "command",
+async def nvim_command(
+    command: str,
     return_state: bool = True,
 ) -> str | dict:
-    """Send input to Neovim.
+    """Run an ex command in Neovim, no leading ':'.
 
-    Modes:
-    - command (default): ex command, no leading ':'.
-      E.g. "e /path/to/file", "w", "42", "wincmd p", "lua vim.print(...)".
-    - eval: evaluate a Vimscript expression and return the result.
-      E.g. "getcwd()", "line('$')", "expand('%:p')".
-    - keys: send keystrokes. Esc is prepended automatically, so the input
-      always starts in normal mode. A second call prepends Esc again,
-      cancelling any intermediate mode from the previous call. Multi-mode
-      sequences must be sent in a single call (e.g. "17GVG", not "17GV"
-      then "G"). Ex commands like wincmd do not work in keys mode; use
-      command mode for those.
+    E.g. "e /path/to/file", "w", "42", "wincmd p", "lua vim.print(...)".
 
     Returns {"result": ..., "state": {...}} by default, where state is
     the same structure as nvim_state (current at the moment the command
@@ -64,7 +51,28 @@ async def nvim_send(
 
     Auto-connects when exactly one Neovim instance is running.
     """
-    return await manager.send(input=input, mode=mode, return_state=return_state)
+    return await manager.send(input=command, mode="command", return_state=return_state)
+
+
+@mcp.tool()
+async def nvim_keys(
+    keys: str,
+    return_state: bool = True,
+) -> str | dict:
+    """Send keystrokes to Neovim.
+
+    Esc is prepended automatically, so the input always starts in normal
+    mode. A second call prepends Esc again, cancelling any intermediate
+    mode from the previous call. Multi-mode sequences must be sent in a
+    single call (e.g. "17GVG", not "17GV" then "G").
+
+    Returns {"result": ..., "state": {...}} by default, where state is
+    the same structure as nvim_state (current at the moment the command
+    finished). Set return_state=false to get only the result string.
+
+    Auto-connects when exactly one Neovim instance is running.
+    """
+    return await manager.send(input=keys, mode="keys", return_state=return_state)
 
 
 @mcp.tool()

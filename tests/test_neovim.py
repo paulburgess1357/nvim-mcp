@@ -132,27 +132,12 @@ class TestSendModes:
         result = asyncio.run(mgr.send("w", "command"))
         assert "test output" in result["result"]
 
-    def test_eval_mode(self):
-        mgr, mock_nvim = _connected_manager()
-        mock_nvim.eval.return_value = "42"
-        mock_nvim.exec_lua.return_value = _MOCK_STATE
-        result = asyncio.run(mgr.send("1+1", "eval"))
-        assert result["result"] == "42"
-
     def test_keys_mode(self):
         mgr, mock_nvim = _connected_manager()
         mock_nvim.exec_lua.return_value = _MOCK_STATE
         result = asyncio.run(mgr.send("gg", "keys"))
         assert result["result"] == "Keys sent: gg"
         mock_nvim.input.assert_called_once_with("<Esc>gg")
-
-    def test_eval_nvim_error(self):
-        mgr, mock_nvim = _connected_manager()
-        mock_nvim.eval.side_effect = NvimError("E15: Invalid expression")
-        mock_nvim.exec_lua.return_value = _MOCK_STATE
-        result = asyncio.run(mgr.send("bad expr", "eval"))
-        assert "Error:" in result["result"]
-        assert "E15" in result["result"]
 
 
 class TestReturnState:

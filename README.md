@@ -33,9 +33,10 @@ It talks to Neovim directly over its default **Unix socket** using msgpack-RPC a
 
 | Tool               | Purpose                                                                                                                                                                                                                                                                            |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`nvim_state`**   | Real-time snapshot of your session: current file, cursor position, mode, modified buffers, cwd, and per-window details (file, cursor, **context lines**, and visual selection for the active window), each prefixed with its absolute line number. This is how the assistant knows what you're looking at. |
-| **`nvim_send`**    | Do anything in Neovim. Three modes: `command` (ex commands), `eval` (Vimscript expressions), `keys` (keystrokes). Returns `{"result": ..., "state": {...}}` by default; set `return_state=false` for the result string only.                                                       |
-| **`nvim_connect`** | Connect to a Neovim instance. Auto-connects when only one exists; lists all when multiple are found.                                                                                                                                                                               |
+| **`nvim_state`**   | Snapshot of the session: mode, cwd, and per-window details (file, cursor, filetype, **context lines**, folds, and visual selection), each context line prefixed with its absolute line number. |
+| **`nvim_command`** | Run an ex command (no leading `:`). E.g. `"w"`, `"e /path"`, `"lua vim.print(...)"`. Returns `{"result": ..., "state": {...}}` by default.                                                   |
+| **`nvim_keys`**    | Send keystrokes. E.g. `"gg"`, `"17GVG"`, `"za"`. Esc is prepended automatically. Returns `{"result": ..., "state": {...}}` by default.                                                      |
+| **`nvim_connect`** | Connect to a Neovim instance. Auto-connects when only one exists; lists all when multiple are found.                                                                                         |
 
 ## Multi-instance
 

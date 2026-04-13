@@ -340,20 +340,11 @@ class NeovimManager:
                 parts.append(f"E: {errmsg}")
             return "\n".join(parts) if parts else "(no output)"
 
-        if mode == "eval":
-            try:
-                result = self._nvim.eval(input)
-                return str(result)
-            except NvimError as e:
-                if self._is_connection_error(e):
-                    raise
-                return f"Error: {e}"
-
         if mode == "keys":
             self._nvim.input("<Esc>" + input)
             return f"Keys sent: {input}"
 
-        return f"Error: unknown mode {mode!r}. Use 'command', 'eval', or 'keys'."
+        return f"Error: unknown mode {mode!r}. Use 'command' or 'keys'."
 
     # -- State ---------------------------------------------------------------
 
