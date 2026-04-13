@@ -47,6 +47,14 @@ def _make_mock_nvim() -> MagicMock:
     return mock
 
 
+def _connected_manager() -> tuple[NeovimManager, MagicMock]:
+    mgr = NeovimManager()
+    mock_nvim = _make_mock_nvim()
+    mgr._nvim = mock_nvim
+    mgr._socket_path = "/tmp/nvim.0/0"
+    return mgr, mock_nvim
+
+
 class TestSingleInstanceAutoConnect:
     def test_auto_connects_and_sends_command(self):
         mgr = NeovimManager()
@@ -115,15 +123,8 @@ class TestMultiInstanceListing:
 
 
 class TestSendModes:
-    def _connected_manager(self) -> tuple[NeovimManager, MagicMock]:
-        mgr = NeovimManager()
-        mock_nvim = _make_mock_nvim()
-        mgr._nvim = mock_nvim
-        mgr._socket_path = "/tmp/nvim.0/0"
-        return mgr, mock_nvim
-
     def test_command_mode(self):
-        mgr, mock_nvim = self._connected_manager()
+        mgr, mock_nvim = _connected_manager()
         mock_nvim.exec_lua.side_effect = [
             {"output": "test output", "errmsg": ""},
             _MOCK_STATE,
@@ -132,21 +133,21 @@ class TestSendModes:
         assert "test output" in result["result"]
 
     def test_eval_mode(self):
-        mgr, mock_nvim = self._connected_manager()
+        mgr, mock_nvim = _connected_manager()
         mock_nvim.eval.return_value = "42"
         mock_nvim.exec_lua.return_value = _MOCK_STATE
         result = asyncio.run(mgr.send("1+1", "eval"))
         assert result["result"] == "42"
 
     def test_keys_mode(self):
-        mgr, mock_nvim = self._connected_manager()
+        mgr, mock_nvim = _connected_manager()
         mock_nvim.exec_lua.return_value = _MOCK_STATE
         result = asyncio.run(mgr.send("gg", "keys"))
         assert result["result"] == "Keys sent: gg"
         mock_nvim.input.assert_called_once_with("<Esc>gg")
 
     def test_eval_nvim_error(self):
-        mgr, mock_nvim = self._connected_manager()
+        mgr, mock_nvim = _connected_manager()
         mock_nvim.eval.side_effect = NvimError("E15: Invalid expression")
         mock_nvim.exec_lua.return_value = _MOCK_STATE
         result = asyncio.run(mgr.send("bad expr", "eval"))
@@ -155,15 +156,8 @@ class TestSendModes:
 
 
 class TestReturnState:
-    def _connected_manager(self) -> tuple[NeovimManager, MagicMock]:
-        mgr = NeovimManager()
-        mock_nvim = _make_mock_nvim()
-        mgr._nvim = mock_nvim
-        mgr._socket_path = "/tmp/nvim.0/0"
-        return mgr, mock_nvim
-
     def test_send_returns_state_by_default(self):
-        mgr, mock_nvim = self._connected_manager()
+        mgr, mock_nvim = _connected_manager()
         mock_nvim.exec_lua.side_effect = [
             {"output": "test output", "errmsg": ""},
             _MOCK_STATE,
@@ -175,14 +169,14 @@ class TestReturnState:
         assert result["state"] == _MOCK_STATE
 
     def test_send_returns_string_when_return_state_false(self):
-        mgr, mock_nvim = self._connected_manager()
+        mgr, mock_nvim = _connected_manager()
         mock_nvim.exec_lua.return_value = {"output": "test output", "errmsg": ""}
         result = asyncio.run(mgr.send("w", "command", return_state=False))
         assert isinstance(result, str)
         assert "test output" in result
 
     def test_send_returns_state_none_on_state_error(self):
-        mgr, mock_nvim = self._connected_manager()
+        mgr, mock_nvim = _connected_manager()
         mock_nvim.exec_lua.side_effect = [
             {"output": "test output", "errmsg": ""},
             RuntimeError("state fetch failed"),

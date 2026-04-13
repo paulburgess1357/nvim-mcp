@@ -14,10 +14,20 @@ from typing import Any
 import msgpack
 
 _CONNECT_TIMEOUT = 5.0
-_ACTIVE_CONTEXT_LINES = int(os.environ["NVIM_MCP_ACTIVE_CONTEXT_LINES"]) \
-    if "NVIM_MCP_ACTIVE_CONTEXT_LINES" in os.environ else 20
-_INACTIVE_CONTEXT_LINES = int(os.environ["NVIM_MCP_INACTIVE_CONTEXT_LINES"]) \
-    if "NVIM_MCP_INACTIVE_CONTEXT_LINES" in os.environ else 20
+
+
+def _env_int(name: str, default: int) -> int:
+    val = os.environ.get(name)
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except ValueError:
+        return default
+
+
+_ACTIVE_CONTEXT_LINES = _env_int("NVIM_MCP_ACTIVE_CONTEXT_LINES", 20)
+_INACTIVE_CONTEXT_LINES = _env_int("NVIM_MCP_INACTIVE_CONTEXT_LINES", 20)
 
 
 class NvimError(Exception):
@@ -111,12 +121,24 @@ local active_n = select(1, ...) or 20
 local inactive_n = select(2, ...) or active_n
 local cur_win = vim.api.nvim_get_current_win()
 local cur_mode = vim.fn.mode()
+
+local function get_context(b, from, to, n)
+    local total = vim.api.nvim_buf_line_count(b)
+    local s = math.max(1, from - n)
+    local e = math.min(total, to + n)
+    local lines = vim.api.nvim_buf_get_lines(b, s - 1, e, false)
+    for i, l in ipairs(lines) do
+        lines[i] = (s + i - 1) .. ": " .. l
+    end
+    return { lines = lines }
+end
+
 local wins = {}
 for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     local b = vim.api.nvim_win_get_buf(w)
     local is_active = (w == cur_win)
-    local wline = vim.api.nvim_win_get_cursor(w)[1]
-    local wcol = vim.api.nvim_win_get_cursor(w)[2] + 1
+    local cursor = vim.api.nvim_win_get_cursor(w)
+    local wline, wcol = cursor[1], cursor[2] + 1
     local winfo = {
         file = vim.api.nvim_buf_get_name(b),
         modified = vim.bo[b].modified,
@@ -139,24 +161,10 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
             end_line = el, end_col = ec,
         }
         if ctx_n > 0 then
-            local total = vim.api.nvim_buf_line_count(b)
-            local s = math.max(1, sl - ctx_n)
-            local e = math.min(total, el + ctx_n)
-            local lines = vim.api.nvim_buf_get_lines(b, s - 1, e, false)
-            for i, l in ipairs(lines) do
-                lines[i] = (s + i - 1) .. ": " .. l
-            end
-            winfo.context = { lines = lines }
+            winfo.context = get_context(b, sl, el, ctx_n)
         end
     elseif ctx_n > 0 then
-        local total = vim.api.nvim_buf_line_count(b)
-        local s = math.max(1, wline - ctx_n)
-        local e = math.min(total, wline + ctx_n)
-        local lines = vim.api.nvim_buf_get_lines(b, s - 1, e, false)
-        for i, l in ipairs(lines) do
-            lines[i] = (s + i - 1) .. ": " .. l
-        end
-        winfo.context = { lines = lines }
+        winfo.context = get_context(b, wline, wline, ctx_n)
     end
     wins[#wins + 1] = winfo
 end
@@ -474,14 +482,15 @@ class NeovimManager:
         except Exception:
             return None
         try:
-            pid: int = nvim.eval("getpid()")
-            cwd: str = nvim.eval("getcwd()")
-            current_file: str = nvim.eval("expand('%:p')")
+            info = nvim.exec_lua(
+                "return {pid=vim.fn.getpid(), cwd=vim.fn.getcwd(),"
+                " file=vim.fn.expand('%:p')}",
+            )
             return NvimInstance(
                 socket_path=sock,
-                pid=pid,
-                cwd=cwd,
-                current_file=current_file,
+                pid=info["pid"],
+                cwd=info["cwd"],
+                current_file=info["file"],
             )
         except Exception:
             return None
