@@ -84,6 +84,8 @@ async def nvim_state() -> dict:
         absolute line number (e.g. "28:   code here").
       - The active window in visual mode also includes selection
         (start_line, start_col, end_line, end_col).
+      - folds: list of [start, end] closed fold ranges (only present when
+        folds exist). Lines inside closed folds are hidden from the user.
 
     Context line counts are controlled by environment variables
     NVIM_MCP_ACTIVE_CONTEXT_LINES (default 20) and

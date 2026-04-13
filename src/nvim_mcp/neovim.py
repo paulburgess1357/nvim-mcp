@@ -168,6 +168,24 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     elseif ctx_n > 0 then
         winfo.context = get_context(b, wline, wline, ctx_n)
     end
+    local folds = {}
+    vim.api.nvim_win_call(w, function()
+        local total = vim.api.nvim_buf_line_count(b)
+        local ln = 1
+        while ln <= total do
+            local fc = vim.fn.foldclosed(ln)
+            if fc == ln then
+                local fe = vim.fn.foldclosedend(ln)
+                folds[#folds + 1] = {fc, fe}
+                ln = fe + 1
+            else
+                ln = ln + 1
+            end
+        end
+    end)
+    if #folds > 0 then
+        winfo.folds = folds
+    end
     if is_active then
         table.insert(wins, 1, winfo)
     else
