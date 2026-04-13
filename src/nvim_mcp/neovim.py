@@ -120,6 +120,7 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     local winfo = {
         file = vim.api.nvim_buf_get_name(b),
         modified = vim.bo[b].modified,
+        buftype = vim.bo[b].buftype,
         active = is_active,
         line = wline,
         col = wcol,
@@ -182,6 +183,8 @@ return {
     windows = wins,
     modified_buffers = modified,
     buffer_count = buf_count,
+    current_tab = vim.fn.tabpagenr(),
+    tab_count = vim.fn.tabpagenr('$'),
 }
 """
 

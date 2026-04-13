@@ -7,7 +7,6 @@ from typing import Literal
 from mcp.server.fastmcp import FastMCP
 
 from nvim_mcp.neovim import NeovimManager
-from nvim_mcp.recipes import get_recipes
 
 mcp = FastMCP("nvim-mcp")
 manager = NeovimManager()
@@ -65,7 +64,7 @@ async def nvim_state() -> dict:
     Returns file, line, col, mode, modified status, filetype, total lines,
     cwd, relativenumber, window list, modified buffers, and buffer count.
 
-    Each window entry includes file, modified, active, line, col, and context
+    Each window entry includes file, modified, buftype, active, line, col, and context
     (lines around that window's cursor, each prefixed with its absolute line
     number). The active window in visual mode also includes selection
     (start_line, start_col, end_line, end_col).
@@ -76,15 +75,6 @@ async def nvim_state() -> dict:
     """
     return await manager.get_state()
 
-
-@mcp.tool()
-async def nvim_recipes(category: str | None = None) -> str:
-    """Get Neovim operation recipes.
-
-    No args = quick reference + category list.
-    With category = full recipes for that section.
-    """
-    return get_recipes(category=category)
 
 
 def main() -> None:

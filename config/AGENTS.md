@@ -1,8 +1,7 @@
 # Neovim via nvim-mcp
 
 The user edits code in Neovim. You control it through nvim-mcp tools.
-You already know Vim — use that knowledge. `nvim_recipes` is a cheat sheet,
-not a limit.
+You already know Vim — use that knowledge.
 
 ## nvim_send modes
 

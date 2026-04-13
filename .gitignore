@@ -82,3 +82,6 @@ ruff_cache/
 # OS
 .DS_Store
 Thumbs.db
+
+# Generated rule files
+config/nvim-mcp.mdc
