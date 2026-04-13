@@ -300,7 +300,9 @@ class NeovimManager:
             try:
                 state = await asyncio.to_thread(self._get_state_sync)
                 cwd = state.get("cwd", "?")
-                current_file = state.get("file", "") or "(none)"
+                wins = state.get("windows", [])
+                current_file = wins[0].get("file", "") if wins else ""
+                current_file = current_file or "(none)"
             except Exception:
                 cwd = "?"
                 current_file = "?"
@@ -309,42 +311,47 @@ class NeovimManager:
 
     # -- Send ----------------------------------------------------------------
 
-    async def send(
-        self, input: str, mode: str, return_state: bool = True
-    ) -> str | dict:
+    async def send_command(self, command: str | list[str]) -> str | list[str]:
         async with self._lock:
             if self._nvim is None:
                 err = await self._auto_connect_unlocked()
                 if err is not None:
-                    return {"result": err, "state": None} if return_state else err
-            result = await self._retry_on_disconnect(self._send_sync, input, mode)
-            if return_state:
-                try:
-                    state = await asyncio.to_thread(self._get_state_sync)
-                except Exception:
-                    state = None
-                return {"result": result, "state": state}
-            return result
+                    return err
+            if isinstance(command, str):
+                return await self._retry_on_disconnect(
+                    self._run_command_sync, command
+                )
+            return await self._retry_on_disconnect(
+                self._run_commands_sync, command
+            )
 
-    def _send_sync(self, input: str, mode: str) -> str:
+    async def send_keys(self, keys: str) -> str:
+        async with self._lock:
+            if self._nvim is None:
+                err = await self._auto_connect_unlocked()
+                if err is not None:
+                    return err
+            return await self._retry_on_disconnect(self._run_keys_sync, keys)
+
+    def _run_command_sync(self, command: str) -> str:
         assert self._nvim is not None
+        result = self._nvim.exec_lua(_EXEC_COMMAND_LUA, command)
+        output = result.get("output", "") or ""
+        errmsg = result.get("errmsg", "") or ""
+        parts: list[str] = []
+        if output:
+            parts.append(output)
+        if errmsg:
+            parts.append(f"E: {errmsg}")
+        return "\n".join(parts) if parts else "(no output)"
 
-        if mode == "command":
-            result = self._nvim.exec_lua(_EXEC_COMMAND_LUA, input)
-            output = result.get("output", "") or ""
-            errmsg = result.get("errmsg", "") or ""
-            parts: list[str] = []
-            if output:
-                parts.append(output)
-            if errmsg:
-                parts.append(f"E: {errmsg}")
-            return "\n".join(parts) if parts else "(no output)"
+    def _run_commands_sync(self, commands: list[str]) -> list[str]:
+        return [self._run_command_sync(cmd) for cmd in commands]
 
-        if mode == "keys":
-            self._nvim.input("<Esc>" + input)
-            return f"Keys sent: {input}"
-
-        return f"Error: unknown mode {mode!r}. Use 'command' or 'keys'."
+    def _run_keys_sync(self, keys: str) -> str:
+        assert self._nvim is not None
+        self._nvim.input("<Esc>" + keys)
+        return ""
 
     # -- State ---------------------------------------------------------------
 

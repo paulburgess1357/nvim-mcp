@@ -7,30 +7,6 @@ import pytest
 
 from nvim_mcp.neovim import NeovimManager, NvimClient, NvimError, NvimInstance
 
-_MOCK_STATE = {
-    "file": "test.py",
-    "line": 1,
-    "col": 1,
-    "mode": "n",
-    "modified": False,
-    "filetype": "python",
-    "total_lines": 10,
-    "cwd": "/home/user/project",
-    "relativenumber": False,
-    "windows": [
-        {
-            "file": "test.py",
-            "modified": False,
-            "active": True,
-            "line": 1,
-            "col": 1,
-            "context": {"lines": ["1: line 1", "2: line 2"]},
-        },
-    ],
-    "modified_buffers": [],
-    "buffer_count": 1,
-}
-
 
 def _make_instance(idx: int = 0) -> NvimInstance:
     return NvimInstance(
@@ -60,19 +36,16 @@ class TestSingleInstanceAutoConnect:
         mgr = NeovimManager()
         inst = _make_instance()
         mock_nvim = _make_mock_nvim()
-        mock_nvim.exec_lua.side_effect = [
-            {"output": "test output", "errmsg": ""},
-            _MOCK_STATE,
-        ]
+        mock_nvim.exec_lua.return_value = {"output": "test output", "errmsg": ""}
 
         with (
             patch.object(NeovimManager, "_all_sockets", return_value=[inst.socket_path]),
             patch.object(NeovimManager, "_probe_socket", return_value=inst),
             patch.object(NvimClient, "connect", return_value=mock_nvim),
         ):
-            result = asyncio.run(mgr.send("w", "command"))
+            result = asyncio.run(mgr.send_command("w"))
 
-        assert "test output" in result["result"]
+        assert "test output" in result
 
 
 class TestMultiInstanceListing:
@@ -122,54 +95,38 @@ class TestMultiInstanceListing:
         assert instances[0].socket_path in result
 
 
-class TestSendModes:
-    def test_command_mode(self):
-        mgr, mock_nvim = _connected_manager()
-        mock_nvim.exec_lua.side_effect = [
-            {"output": "test output", "errmsg": ""},
-            _MOCK_STATE,
-        ]
-        result = asyncio.run(mgr.send("w", "command"))
-        assert "test output" in result["result"]
-
-    def test_keys_mode(self):
-        mgr, mock_nvim = _connected_manager()
-        mock_nvim.exec_lua.return_value = _MOCK_STATE
-        result = asyncio.run(mgr.send("gg", "keys"))
-        assert result["result"] == "Keys sent: gg"
-        mock_nvim.input.assert_called_once_with("<Esc>gg")
-
-
-class TestReturnState:
-    def test_send_returns_state_by_default(self):
-        mgr, mock_nvim = _connected_manager()
-        mock_nvim.exec_lua.side_effect = [
-            {"output": "test output", "errmsg": ""},
-            _MOCK_STATE,
-        ]
-        result = asyncio.run(mgr.send("w", "command"))
-        assert isinstance(result, dict)
-        assert "result" in result
-        assert "state" in result
-        assert result["state"] == _MOCK_STATE
-
-    def test_send_returns_string_when_return_state_false(self):
+class TestCommand:
+    def test_single_command(self):
         mgr, mock_nvim = _connected_manager()
         mock_nvim.exec_lua.return_value = {"output": "test output", "errmsg": ""}
-        result = asyncio.run(mgr.send("w", "command", return_state=False))
+        result = asyncio.run(mgr.send_command("w"))
         assert isinstance(result, str)
         assert "test output" in result
 
-    def test_send_returns_state_none_on_state_error(self):
+    def test_command_list(self):
         mgr, mock_nvim = _connected_manager()
         mock_nvim.exec_lua.side_effect = [
-            {"output": "test output", "errmsg": ""},
-            RuntimeError("state fetch failed"),
+            {"output": "", "errmsg": ""},
+            {"output": "", "errmsg": ""},
+            {"output": "", "errmsg": ""},
         ]
-        result = asyncio.run(mgr.send("w", "command"))
-        assert isinstance(result, dict)
-        assert "test output" in result["result"]
-        assert result["state"] is None
+        result = asyncio.run(mgr.send_command(["wincmd p", "checktime", "wincmd p"]))
+        assert isinstance(result, list)
+        assert len(result) == 3
+
+    def test_command_error_inline(self):
+        mgr, mock_nvim = _connected_manager()
+        mock_nvim.exec_lua.return_value = {"output": "", "errmsg": "E492: Not an editor command"}
+        result = asyncio.run(mgr.send_command("badcmd"))
+        assert "E:" in result
+
+
+class TestKeys:
+    def test_sends_keys(self):
+        mgr, mock_nvim = _connected_manager()
+        result = asyncio.run(mgr.send_keys("gg"))
+        assert result == ""
+        mock_nvim.input.assert_called_once_with("<Esc>gg")
 
 
 class TestReconnect:
@@ -183,13 +140,10 @@ class TestReconnect:
 
         with patch.object(NvimClient, "connect", return_value=mock_nvim_new):
             mock_nvim_old.exec_lua.side_effect = OSError("Broken pipe")
-            mock_nvim_new.exec_lua.side_effect = [
-                {"output": "after reconnect", "errmsg": ""},
-                _MOCK_STATE,
-            ]
-            result = asyncio.run(mgr.send("w", "command"))
+            mock_nvim_new.exec_lua.return_value = {"output": "after reconnect", "errmsg": ""}
+            result = asyncio.run(mgr.send_command("w"))
 
-        assert "after reconnect" in result["result"]
+        assert "after reconnect" in result
 
 
 class TestIsConnectionError:

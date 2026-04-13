@@ -37,28 +37,24 @@ async def nvim_connect(
 
 
 @mcp.tool()
-async def nvim_command(
-    command: str,
-    return_state: bool = True,
-) -> str | dict:
-    """Run an ex command in Neovim, no leading ':'.
+async def nvim_command(command: str | list[str]) -> str | list[str]:
+    """Run ex commands in Neovim, no leading ':'.
 
-    E.g. "e /path/to/file", "w", "42", "wincmd p", "lua vim.print(...)".
+    Accepts a single command string or a list of commands to run
+    sequentially. Returns the output string for each command, or
+    "(no output)" when a command produces no output. Errors are
+    returned inline as "E: <message>".
 
-    Returns {"result": ..., "state": {...}} by default, where state is
-    the same structure as nvim_state (current at the moment the command
-    finished). Set return_state=false to get only the result string.
+    E.g. "w", "e /path/to/file", "42", "wincmd p",
+    "lua vim.print(...)", or ["wincmd p", "checktime", "wincmd p"].
 
     Auto-connects when exactly one Neovim instance is running.
     """
-    return await manager.send(input=command, mode="command", return_state=return_state)
+    return await manager.send_command(command)
 
 
 @mcp.tool()
-async def nvim_keys(
-    keys: str,
-    return_state: bool = True,
-) -> str | dict:
+async def nvim_keys(keys: str) -> str:
     """Send keystrokes to Neovim.
 
     Esc is prepended automatically, so the input always starts in normal
@@ -66,13 +62,9 @@ async def nvim_keys(
     mode from the previous call. Multi-mode sequences must be sent in a
     single call (e.g. "17GVG", not "17GV" then "G").
 
-    Returns {"result": ..., "state": {...}} by default, where state is
-    the same structure as nvim_state (current at the moment the command
-    finished). Set return_state=false to get only the result string.
-
     Auto-connects when exactly one Neovim instance is running.
     """
-    return await manager.send(input=keys, mode="keys", return_state=return_state)
+    return await manager.send_keys(keys)
 
 
 @mcp.tool()
