@@ -33,11 +33,12 @@ It talks to Neovim directly over its default **Unix socket** using msgpack-RPC a
 
 | Tool               | Purpose                                                                                                                                                                                                                                                                            |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`nvim_state`**   | Snapshot of the session: mode, cwd, and per-window details (file, cursor, filetype, **context lines**, folds, and visual selection), each context line prefixed with its absolute line number. |
-| **`nvim_buf_read`**| Read lines from a buffer (in-memory, not disk). Supports optional line range.                                                                                                                |
-| **`nvim_command`** | Run ex commands (no leading `:`). Accepts a single string or a list. E.g. `"w"`, `"e /path"`, `"lua vim.print(...)"`, or `["wincmd p", "checktime", "wincmd p"]`.                            |
-| **`nvim_keys`**    | Send keystrokes. E.g. `"gg"`, `"17GVG"`, `"za"`. Esc is prepended automatically.                                                                                                            |
-| **`nvim_connect`** | Connect to a Neovim instance. Auto-connects when only one exists; lists all when multiple are found.                                                                                         |
+| **`nvim_state`**      | Snapshot of the session: mode, cwd, open buffers, and per-window details (file, cursor, filetype, **context lines**, folds, visual selection, and **diagnostic summary**). |
+| **`nvim_diagnostics`**| Get LSP diagnostics: file, line, col, severity, message, source. Optional file path to limit to one buffer.                                                                |
+| **`nvim_buf_read`**   | Read lines from a buffer (in-memory, not disk). Supports optional line range.                                                                                              |
+| **`nvim_command`**    | Run ex commands (no leading `:`). Accepts a single string or a list. E.g. `"w"`, `"e /path"`, `"lua vim.print(...)"`, or `["wincmd p", "checktime", "wincmd p"]`.          |
+| **`nvim_keys`**       | Send keystrokes. E.g. `"gg"`, `"17GVG"`, `"za"`. Esc is prepended automatically.                                                                                          |
+| **`nvim_connect`**    | Connect to a Neovim instance. Auto-connects when only one exists; lists all when multiple are found.                                                                       |
 
 ## Multi-instance
 

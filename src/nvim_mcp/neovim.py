@@ -186,6 +186,16 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if #folds > 0 then
         winfo.folds = folds
     end
+    local sev_names = {"error", "warning", "info", "hint"}
+    local diags = vim.diagnostic.get(b)
+    local dcounts = {error = 0, warning = 0, info = 0, hint = 0}
+    for _, d in ipairs(diags) do
+        local s = sev_names[d.severity] or "hint"
+        dcounts[s] = dcounts[s] + 1
+    end
+    if dcounts.error + dcounts.warning + dcounts.info + dcounts.hint > 0 then
+        winfo.diagnostics_summary = dcounts
+    end
     if is_active then
         table.insert(wins, 1, winfo)
     else
@@ -193,12 +203,15 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     end
 end
 local modified = {}
-local buf_count = 0
+local buffers = {}
 for _, b in ipairs(vim.api.nvim_list_bufs()) do
     if vim.bo[b].buflisted and vim.api.nvim_buf_is_loaded(b) then
-        buf_count = buf_count + 1
+        local name = vim.api.nvim_buf_get_name(b)
+        if name ~= "" then
+            buffers[#buffers + 1] = name
+        end
         if vim.bo[b].modified then
-            modified[#modified + 1] = vim.api.nvim_buf_get_name(b)
+            modified[#modified + 1] = name
         end
     end
 end
@@ -207,11 +220,46 @@ return {
     cwd = vim.fn.getcwd(),
     relativenumber = vim.wo.relativenumber,
     modified_buffers = modified,
-    buffer_count = buf_count,
+    buffers = buffers,
     current_tab = vim.fn.tabpagenr(),
     tab_count = vim.fn.tabpagenr('$'),
     windows = wins,
 }
+"""
+
+_GET_DIAGNOSTICS_LUA = """\
+local file = ...
+local sev_names = {"error", "warning", "info", "hint"}
+local bufs = {}
+if file then
+    local b = vim.fn.bufnr(file)
+    if b == -1 then return {error = "Buffer not found: " .. tostring(file)} end
+    bufs[1] = b
+else
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.bo[b].buflisted and vim.api.nvim_buf_is_loaded(b) then
+            bufs[#bufs + 1] = b
+        end
+    end
+end
+local result = {}
+for _, b in ipairs(bufs) do
+    local diags = vim.diagnostic.get(b)
+    if #diags > 0 then
+        local name = vim.api.nvim_buf_get_name(b)
+        for _, d in ipairs(diags) do
+            result[#result + 1] = {
+                file = name,
+                line = d.lnum + 1,
+                col = d.col + 1,
+                severity = sev_names[d.severity] or "hint",
+                message = d.message,
+                source = d.source or "",
+            }
+        end
+    end
+end
+return result
 """
 
 _READ_BUF_LUA = """\
@@ -384,6 +432,22 @@ class NeovimManager:
         return self._nvim.exec_lua(
             _GET_STATE_LUA, _ACTIVE_CONTEXT_LINES, _INACTIVE_CONTEXT_LINES
         )
+
+    # -- Diagnostics ---------------------------------------------------------
+
+    async def get_diagnostics(self, file: str | None = None) -> list:
+        async with self._lock:
+            if self._nvim is None:
+                err = await self._auto_connect_unlocked()
+                if err is not None:
+                    raise RuntimeError(err)
+            return await self._retry_on_disconnect(
+                self._get_diagnostics_sync, file
+            )
+
+    def _get_diagnostics_sync(self, file: str | None) -> list:
+        assert self._nvim is not None
+        return self._nvim.exec_lua(_GET_DIAGNOSTICS_LUA, file)
 
     # -- Buffer read ---------------------------------------------------------
 

@@ -68,6 +68,18 @@ async def nvim_keys(keys: str) -> str:
 
 
 @mcp.tool()
+async def nvim_diagnostics(file: str | None = None) -> list:
+    """Get LSP diagnostics from Neovim.
+
+    Returns a list of {file, line, col, severity, message, source}.
+    Optional file path to limit to one buffer; omit for all buffers.
+
+    Auto-connects when exactly one Neovim instance is running.
+    """
+    return await manager.get_diagnostics(file=file)
+
+
+@mcp.tool()
 async def nvim_buf_read(
     file: str,
     start_line: int | None = None,
@@ -89,8 +101,10 @@ async def nvim_buf_read(
 async def nvim_state() -> dict:
     """Snapshot of the current Neovim session.
 
-    Top-level fields: mode, cwd, relativenumber, modified_buffers,
-    buffer_count, current_tab, tab_count.
+    Top-level fields: mode, cwd, relativenumber, buffers, modified_buffers,
+    current_tab, tab_count.
+    - buffers: file paths of all open (listed) buffers.
+    - modified_buffers: subset of buffers with unsaved changes.
 
     windows — list of visible windows (current tab only). The active
     window is always first. Each entry:
@@ -104,6 +118,8 @@ async def nvim_state() -> dict:
         (active window only).
       - folds: list of [start, end] closed fold ranges. Lines inside closed
         folds are hidden from the user.
+      - diagnostics_summary: {error, warning, info, hint} counts from LSP.
+        Only present when the buffer has diagnostics.
 
     Context line counts are controlled by environment variables
     NVIM_MCP_ACTIVE_CONTEXT_LINES (default 20) and

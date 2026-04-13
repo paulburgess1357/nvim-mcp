@@ -15,9 +15,12 @@ Never carry over cursor position or file identity from a previous turn.**
 2. **Read modified buffers from Neovim, not disk.** If `nvim_state`
    lists a file in `modified_buffers`, use `nvim_buf_read` — the disk
    version is stale.
-3. **The user's question almost always relates to the active file window**
+3. **Check diagnostics when fixing code.** `nvim_state` includes a
+   `diagnostics_summary` per window. Use `nvim_diagnostics` to get full
+   details (file, line, severity, message) when you need them.
+4. **The user's question almost always relates to the active file window**
    (buftype ""), not a terminal or special buffer.
-4. **Preserve the user's active window.** If the terminal is active and
+5. **Preserve the user's active window.** If the terminal is active and
    you need to act on a file window, switch with `wincmd p`, act, then
    switch back. Disk edits only need `checktime` — no window switch.
 
