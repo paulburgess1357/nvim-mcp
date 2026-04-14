@@ -171,7 +171,7 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
         },
     }
     local ctx_n = is_active and active_n or inactive_n
-    if is_active and (cur_mode == 'v' or cur_mode == 'V' or cur_mode == '\\22') then
+    if is_active and (cur_mode == 'visual' or cur_mode == 'visual_line' or cur_mode == 'visual_block') then
         local vpos = vim.fn.getpos('v')
         local cpos = vim.fn.getpos('.')
         local sl, sc = vpos[2], vpos[3]
