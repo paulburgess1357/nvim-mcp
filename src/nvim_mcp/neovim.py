@@ -121,7 +121,21 @@ local active_n = select(1, ...) or 20
 local inactive_n = select(2, ...) or active_n
 local cur_win = vim.api.nvim_get_current_win()
 local alt_win = vim.fn.win_getid(vim.fn.winnr('#'))
-local cur_mode = vim.fn.mode()
+local raw_mode = vim.fn.mode()
+local mode_names = {
+    n = "normal", i = "insert", v = "visual", V = "visual_line",
+    ["\\22"] = "visual_block", R = "replace", c = "command", t = "terminal",
+    s = "select", S = "select_line", ["\\19"] = "select_block",
+}
+local cur_mode = mode_names[raw_mode] or raw_mode
+local cwd = vim.fn.getcwd()
+local cwd_slash = cwd:sub(-1) == "/" and cwd or (cwd .. "/")
+local function rel_path(p)
+    if p:sub(1, #cwd_slash) == cwd_slash then
+        return p:sub(#cwd_slash + 1)
+    end
+    return p
+end
 
 local function get_context(b, from, to, n)
     local total = vim.api.nvim_buf_line_count(b)
@@ -131,7 +145,7 @@ local function get_context(b, from, to, n)
     for i, l in ipairs(lines) do
         lines[i] = (s + i - 1) .. ": " .. l
     end
-    return { lines = lines }
+    return lines
 end
 
 local wins = {}
@@ -140,12 +154,13 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     local is_active = (w == cur_win)
     local cursor = vim.api.nvim_win_get_cursor(w)
     local wline, wcol = cursor[1], cursor[2] + 1
+    local raw_bt = vim.bo[b].buftype
     local winfo = {
-        file = vim.api.nvim_buf_get_name(b),
+        file = rel_path(vim.api.nvim_buf_get_name(b)),
         filetype = vim.bo[b].filetype,
         total_lines = vim.api.nvim_buf_line_count(b),
         modified = vim.bo[b].modified,
-        buftype = vim.bo[b].buftype,
+        buftype = raw_bt == "" and "file" or raw_bt,
         role = is_active and "active" or (w == alt_win and "alternate" or nil),
         line = wline,
         col = wcol,
@@ -248,16 +263,17 @@ for _, b in ipairs(vim.api.nvim_list_bufs()) do
     if vim.bo[b].buflisted and vim.api.nvim_buf_is_loaded(b) then
         local name = vim.api.nvim_buf_get_name(b)
         if name ~= "" then
-            buffers[#buffers + 1] = name
-        end
-        if vim.bo[b].modified then
-            modified[#modified + 1] = name
+            local rp = rel_path(name)
+            buffers[#buffers + 1] = rp
+            if vim.bo[b].modified then
+                modified[#modified + 1] = rp
+            end
         end
     end
 end
 return {
     mode = cur_mode,
-    cwd = vim.fn.getcwd(),
+    cwd = cwd,
     modified_buffers = modified,
     buffers = buffers,
     current_tab = vim.fn.tabpagenr(),
@@ -310,6 +326,7 @@ local b = vim.fn.bufnr(file)
 if b == -1 then
     b = vim.fn.bufadd(file)
     vim.fn.bufload(b)
+    vim.bo[b].buflisted = true
 end
 if not vim.api.nvim_buf_is_loaded(b) then
     vim.fn.bufload(b)
@@ -514,12 +531,8 @@ class NeovimManager:
                 if err is not None:
                     return err
             if isinstance(command, str):
-                return await self._retry_on_disconnect(
-                    self._run_command_sync, command
-                )
-            return await self._retry_on_disconnect(
-                self._run_commands_sync, command
-            )
+                return await self._retry_on_disconnect(self._run_command_sync, command)
+            return await self._retry_on_disconnect(self._run_commands_sync, command)
 
     async def send_keys(self, keys: str) -> dict:
         async with self._lock:
@@ -573,9 +586,7 @@ class NeovimManager:
                 err = await self._auto_connect_unlocked()
                 if err is not None:
                     raise RuntimeError(err.get("error", str(err)))
-            return await self._retry_on_disconnect(
-                self._get_diagnostics_sync, file
-            )
+            return await self._retry_on_disconnect(self._get_diagnostics_sync, file)
 
     def _get_diagnostics_sync(self, file: str | None) -> list:
         assert self._nvim is not None
@@ -651,7 +662,11 @@ class NeovimManager:
                 if err is not None:
                     raise RuntimeError(err.get("error", str(err)))
             return await self._retry_on_disconnect(
-                self._highlight_buf_sync, file, start_line, end_line, color,
+                self._highlight_buf_sync,
+                file,
+                start_line,
+                end_line,
+                color,
             )
 
     def _highlight_buf_sync(
@@ -673,14 +688,13 @@ class NeovimManager:
                 if err is not None:
                     raise RuntimeError(err.get("error", str(err)))
             return await self._retry_on_disconnect(
-                self._clear_highlights_sync, file,
+                self._clear_highlights_sync,
+                file,
             )
 
     def _clear_highlights_sync(self, file: str) -> dict:
         assert self._nvim is not None
-        return self._nvim.exec_lua(
-            _HIGHLIGHT_LUA, file, None, None, None, True
-        )
+        return self._nvim.exec_lua(_HIGHLIGHT_LUA, file, None, None, None, True)
 
     # -- Connection helpers (called with lock held) --------------------------
 
@@ -724,9 +738,7 @@ class NeovimManager:
         try:
             self._nvim = await self._connect_to(self._socket_path)
         except (asyncio.TimeoutError, OSError) as e:
-            raise RuntimeError(
-                f"Reconnect to {self._socket_path} failed: {e}"
-            ) from e
+            raise RuntimeError(f"Reconnect to {self._socket_path} failed: {e}") from e
 
     async def _retry_on_disconnect(self, fn, *args):
         """Run *fn* in a thread; on connection error, reconnect and retry once."""

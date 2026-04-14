@@ -132,12 +132,14 @@ async def read_buf_range(
 async def get_state() -> dict:
     """Snapshot of the current Neovim session.
 
-    Returns: mode, cwd, buffers, modified_buffers, current_tab, tab_count.
+    Returns: mode (normal/insert/visual/etc.), cwd, buffers (relative
+    paths), modified_buffers, current_tab, tab_count.
 
     windows — list of visible windows (current tab only). The active
     window is always first, the alternate window (previous) is second. Each entry:
-      file, filetype, total_lines, modified, buftype, line, col,
-      indent: {expandtab, shiftwidth, tabstop}.
+      file (relative to cwd), filetype, total_lines, modified,
+      buftype ("file" for normal buffers, "terminal", etc.),
+      line, col, indent: {expandtab, shiftwidth, tabstop}.
       Optional per-window fields:
       - role: "active" for the current window, "alternate" for the previous window.
       - context: lines around the cursor with line numbers.
