@@ -9,13 +9,11 @@ You already know Vim — use that knowledge.
 nvim-mcp call, file read, or disk edit that touches a Neovim buffer.
 Never carry over cursor position or file identity from a previous turn.**
 
-1. **Read open buffers with `nvim_buf_read`, not disk.** For files
-   listed in `buffers`, the buffer is the source of truth. Use
-   `nvim_buf_read_range` when you only need a slice.
-2. **Edit with `nvim_buf_replace`.** It writes directly to the buffer —
-   no `:checktime` needed, undo works, unsaved changes are preserved.
-   Use `nvim_buf_write` to set entire buffer content.
-   Fall back to disk only if the file isn't open or the tool fails.
+1. **If a file is in `buffers`, always use buffer tools — not disk.**
+   Read with `nvim_buf_read` (or `nvim_buf_read_range` for a slice).
+   Edit with `nvim_buf_replace` (or `nvim_buf_write` for full content).
+   This ensures the user sees changes immediately and gets undo.
+   Fall back to disk only if the file isn't in `buffers`.
 3. **Check diagnostics when fixing code.** `nvim_state` includes a
    `diagnostics_summary` per window. Use `nvim_diagnostics` or
    `nvim_buf_diagnostics` to get full details (file, line, severity,
@@ -25,6 +23,16 @@ Never carry over cursor position or file identity from a previous turn.**
 5. **Preserve the user's active window.** If the terminal is active and
    you need to act on a file window, switch with `wincmd p`, act, then
    switch back.
+
+## Highlight colors
+
+When using `nvim_highlight_range`, use these colors:
+- Focus (default): `#3b4048`
+- Errors / problems: `#5f3a3a`
+- Good / additions: `#3a5f3a`
+- Info / context: `#2e4a6e`
+- Warnings / caution: `#6b5a2a`
+- Suggestions / notes: `#4a3a5f`
 
 ## Multi-instance
 

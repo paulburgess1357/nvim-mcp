@@ -147,7 +147,7 @@ async def nvim_highlight_range(
     file: str,
     start_line: int,
     end_line: int,
-    color: str = "Yellow",
+    color: str = "#3b4048",
 ) -> dict:
     """Highlight lines in a Neovim buffer with colored annotations.
 

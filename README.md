@@ -81,10 +81,10 @@ Open a file in Neovim, then paste this into your AI assistant:
 For each step: explain what you're about to do, then do it, then tell me
 what happened. Wait for me to say "next" before moving on.
 
-1. What file am I in and what's around my cursor?
-2. Highlight the current function and explain what it does.
-3. Add a docstring above it, save, and show me the result.
-4. Open a vertical split, write a short test for that function, and save.
+1. What file am I in? Highlight the function my cursor is in.
+2. Are there any diagnostics? Highlight any lines with errors or warnings.
+3. Add a docstring above the function, then show me the diff.
+4. Open a vertical split, write a short test for that function, and save both files.
 ```
 
 ## Requirements

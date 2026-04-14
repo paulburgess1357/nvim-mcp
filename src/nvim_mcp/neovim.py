@@ -393,7 +393,7 @@ end
 local total = vim.api.nvim_buf_line_count(b)
 local sl = start_line
 local el = end_line
-color = color or "Yellow"
+color = color or "#3b4048"
 if sl < 1 then sl = 1 end
 if el > total then el = total end
 
