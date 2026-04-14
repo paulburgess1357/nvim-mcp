@@ -229,6 +229,7 @@ return {
 
 _GET_DIAGNOSTICS_LUA = """\
 local file = ...
+if file == vim.NIL then file = nil end
 local sev_names = {"error", "warning", "info", "hint"}
 local bufs = {}
 if file then
@@ -262,7 +263,7 @@ end
 return result
 """
 
-_EDIT_BUF_LUA = """\
+_EDIT_BUF_LUA = r"""
 local file, old_str, new_str = ...
 
 -- Find or create buffer
@@ -276,15 +277,15 @@ if not vim.api.nvim_buf_is_loaded(b) then
 end
 
 -- Write mode: no old_str means set entire buffer content
-if old_str == nil or old_str == "" then
-    local new_lines = vim.split(new_str, "\\n", {plain = true})
+if old_str == nil or old_str == vim.NIL or old_str == "" then
+    local new_lines = vim.split(new_str, "\n", {plain = true})
     vim.api.nvim_buf_set_lines(b, 0, -1, false, new_lines)
     return {total_lines = #new_lines}
 end
 
 -- Replace mode: find old_str in buffer, replace with new_str
 local lines = vim.api.nvim_buf_get_lines(b, 0, -1, false)
-local text = table.concat(lines, "\\n")
+local text = table.concat(lines, "\n")
 
 local s, e = string.find(text, old_str, 1, true)
 if not s then
@@ -296,15 +297,15 @@ end
 
 -- Compute affected line range (0-indexed)
 local before = text:sub(1, s - 1)
-local start_line = select(2, before:gsub("\\n", ""))
-local end_line = start_line + select(2, old_str:gsub("\\n", ""))
+local start_line = select(2, before:gsub("\n", ""))
+local end_line = start_line + select(2, old_str:gsub("\n", ""))
 
 -- Preserve text on start_line before match and on end_line after match
-local prefix = before:match("[^\\n]*$") or ""
-local suffix = (text:sub(e + 1)):match("^[^\\n]*") or ""
+local prefix = before:match("[^\n]*$") or ""
+local suffix = (text:sub(e + 1)):match("^[^\n]*") or ""
 
 local replacement = prefix .. new_str .. suffix
-local new_lines = vim.split(replacement, "\\n", {plain = true})
+local new_lines = vim.split(replacement, "\n", {plain = true})
 vim.api.nvim_buf_set_lines(b, start_line, end_line + 1, false, new_lines)
 
 return {
@@ -320,8 +321,8 @@ local file, start_line, end_line = ...
 local b = vim.fn.bufnr(file)
 if b == -1 then return {error = "Buffer not found: " .. tostring(file)} end
 local total = vim.api.nvim_buf_line_count(b)
-local s = start_line or 1
-local e = end_line or total
+local s = (type(start_line) == "number") and start_line or 1
+local e = (type(end_line) == "number") and end_line or total
 if s < 1 then s = 1 end
 if e > total then e = total end
 local lines = vim.api.nvim_buf_get_lines(b, s - 1, e, false)

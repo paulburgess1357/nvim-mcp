@@ -9,9 +9,11 @@ You already know Vim — use that knowledge.
 nvim-mcp call, file read, or disk edit that touches a Neovim buffer.
 Never carry over cursor position or file identity from a previous turn.**
 
-1. **Edit with `nvim_buf_edit`.** It writes directly to the buffer —
+1. **Read open buffers with `nvim_buf_read`, not disk.** For files
+   listed in `buffers`, the buffer is the source of truth.
+2. **Edit with `nvim_buf_edit`.** It writes directly to the buffer —
    no `:checktime` needed, undo works, unsaved changes are preserved.
-   Fall back to disk edits + `:checktime` only if `nvim_buf_edit` fails.
+   Fall back to disk only if the file isn't open or the tool fails.
 2. **Check diagnostics when fixing code.** `nvim_state` includes a
    `diagnostics_summary` per window. Use `nvim_diagnostics` to get full
    details (file, line, severity, message) when you need them.

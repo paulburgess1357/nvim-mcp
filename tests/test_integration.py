@@ -12,7 +12,7 @@ import time
 
 import pytest
 
-from nvim_mcp.neovim import NvimClient, NvimError
+from nvim_mcp.neovim import NvimClient, NvimError, _EDIT_BUF_LUA, _READ_BUF_LUA
 
 pytestmark = pytest.mark.skipif(
     not shutil.which("nvim"), reason="nvim not installed"
@@ -161,6 +161,211 @@ class TestNvimClientRPC:
                 assert client.eval(f"{i} + 1") == i + 1
         finally:
             client.close()
+
+
+class TestBufEdit:
+    """Test nvim_buf_edit Lua against a real Neovim with various content."""
+
+    _buf_counter = 0
+
+    @pytest.fixture()
+    def client(self, nvim_socket):
+        c = NvimClient.connect(nvim_socket)
+        yield c
+        c.close()
+
+    def _unique_path(self):
+        TestBufEdit._buf_counter += 1
+        return f"/tmp/nvim_test_buf_{os.getpid()}_{TestBufEdit._buf_counter}.txt"
+
+    def _setup_buffer(self, client, path, content):
+        """Create a buffer with known content, no disk interaction."""
+        client.exec_lua(
+            "local f, c = ...\n"
+            "vim.cmd('noswapfile edit ' .. vim.fn.fnameescape(f))\n"
+            "local b = vim.fn.bufnr(f)\n"
+            "vim.api.nvim_buf_set_lines(b, 0, -1, false, vim.split(c, '\\n', {plain=true}))",
+            path, content,
+        )
+
+    def _read_buffer(self, client, path):
+        """Read full buffer content as a string."""
+        result = client.exec_lua(_READ_BUF_LUA, path, None, None)
+        lines = result["lines"]
+        return "\n".join(line.split(": ", 1)[1] for line in lines)
+
+    def test_basic_replace(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "hello world")
+        result = client.exec_lua(_EDIT_BUF_LUA, p, "hello", "goodbye")
+        assert "error" not in result
+        assert self._read_buffer(client, p) == "goodbye world"
+
+    def test_double_quotes(self, client):
+        p = self._unique_path()
+        content = '#include "stdio.h"\n#include "stdlib.h"'
+        self._setup_buffer(client, p, content)
+        result = client.exec_lua(
+            _EDIT_BUF_LUA, p,
+            '#include "stdio.h"',
+            '#include "stdio.h"\n#include "math.h"',
+        )
+        assert "error" not in result
+        assert '#include "math.h"' in self._read_buffer(client, p)
+
+    def test_single_quotes(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "msg = 'hello'")
+        result = client.exec_lua(_EDIT_BUF_LUA, p, "'hello'", "'goodbye'")
+        assert "error" not in result
+        assert self._read_buffer(client, p) == "msg = 'goodbye'"
+
+    def test_backslashes(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "path = C:\\Users\\test")
+        result = client.exec_lua(
+            _EDIT_BUF_LUA, p, "C:\\Users\\test", "C:\\Users\\new",
+        )
+        assert "error" not in result
+        assert "C:\\Users\\new" in self._read_buffer(client, p)
+
+    def test_tab_characters(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "no\ttabs\there")
+        result = client.exec_lua(_EDIT_BUF_LUA, p, "\ttabs\t", "\tspaces\t")
+        assert "error" not in result
+        assert "no\tspaces\there" == self._read_buffer(client, p)
+
+    def test_unicode(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "hello 世界 🌍")
+        result = client.exec_lua(_EDIT_BUF_LUA, p, "世界 🌍", "world 🌎")
+        assert "error" not in result
+        assert self._read_buffer(client, p) == "hello world 🌎"
+
+    def test_multiline_replace(self, client):
+        p = self._unique_path()
+        content = "line 1\nline 2\nline 3\nline 4"
+        self._setup_buffer(client, p, content)
+        result = client.exec_lua(
+            _EDIT_BUF_LUA, p,
+            "line 2\nline 3", "replaced 2\nreplaced 3\nextra line",
+        )
+        assert "error" not in result
+        assert result["lines_removed"] == 2
+        assert result["lines_added"] == 3
+        buf = self._read_buffer(client, p)
+        assert "replaced 2\nreplaced 3\nextra line" in buf
+        assert "line 1" in buf
+        assert "line 4" in buf
+
+    def test_delete_text(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "keep this remove this keep too")
+        result = client.exec_lua(_EDIT_BUF_LUA, p, " remove this", "")
+        assert "error" not in result
+        assert self._read_buffer(client, p) == "keep this keep too"
+
+    def test_lua_pattern_chars(self, client):
+        p = self._unique_path()
+        content = "match: 100% (done) [ok]"
+        self._setup_buffer(client, p, content)
+        result = client.exec_lua(
+            _EDIT_BUF_LUA, p,
+            "100% (done) [ok]", "50% (pending) [wait]",
+        )
+        assert "error" not in result
+        assert "50% (pending) [wait]" in self._read_buffer(client, p)
+
+    def test_curly_braces(self, client):
+        p = self._unique_path()
+        content = "void foo() {\n    return;\n}"
+        self._setup_buffer(client, p, content)
+        result = client.exec_lua(
+            _EDIT_BUF_LUA, p,
+            "{\n    return;\n}", "{\n    int x = 0;\n    return;\n}",
+        )
+        assert "error" not in result
+        assert "int x = 0;" in self._read_buffer(client, p)
+
+    def test_write_mode_full_content(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "old content")
+        result = client.exec_lua(_EDIT_BUF_LUA, p, None, "brand new\ncontent")
+        assert "error" not in result
+        assert result["total_lines"] == 2
+        assert self._read_buffer(client, p) == "brand new\ncontent"
+
+    def test_write_mode_empty_old_string(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "old content")
+        result = client.exec_lua(_EDIT_BUF_LUA, p, "", "replaced all")
+        assert "error" not in result
+        assert self._read_buffer(client, p) == "replaced all"
+
+    def test_create_new_buffer(self, client):
+        p = self._unique_path()
+        result = client.exec_lua(_EDIT_BUF_LUA, p, None, "fresh content")
+        assert "error" not in result
+        assert result["total_lines"] == 1
+        assert self._read_buffer(client, p) == "fresh content"
+
+    def test_not_found_error(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "some content")
+        result = client.exec_lua(_EDIT_BUF_LUA, p, "nonexistent text", "replacement")
+        assert "error" in result
+        assert "not found" in result["error"]
+
+    def test_multiple_matches_error(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "aaa bbb aaa")
+        result = client.exec_lua(_EDIT_BUF_LUA, p, "aaa", "ccc")
+        assert "error" in result
+        assert "multiple" in result["error"]
+
+    def test_append_to_end(self, client):
+        p = self._unique_path()
+        content = "line 1\nline 2\nline 3"
+        self._setup_buffer(client, p, content)
+        result = client.exec_lua(
+            _EDIT_BUF_LUA, p, "line 3", "line 3\nline 4\nline 5",
+        )
+        assert "error" not in result
+        buf = self._read_buffer(client, p)
+        assert buf.endswith("line 4\nline 5")
+
+    def test_insert_at_beginning(self, client):
+        p = self._unique_path()
+        content = "first line\nsecond line"
+        self._setup_buffer(client, p, content)
+        result = client.exec_lua(
+            _EDIT_BUF_LUA, p, "first line", "zeroth line\nfirst line",
+        )
+        assert "error" not in result
+        buf = self._read_buffer(client, p)
+        assert buf.startswith("zeroth line\nfirst line")
+
+    def test_logger_style_content(self, client):
+        p = self._unique_path()
+        content = (
+            '#include "utils/Logger.hpp"\n'
+            "\n"
+            'void foo() {\n'
+            '    Logger::getInstance().info("Shape added to renderer");\n'
+            "}"
+        )
+        self._setup_buffer(client, p, content)
+        result = client.exec_lua(
+            _EDIT_BUF_LUA, p,
+            '    Logger::getInstance().info("Shape added to renderer");',
+            '    Logger::getInstance().info("Shape added to renderer");\n'
+            '    Logger::getInstance().debug("Count: " + std::to_string(count));',
+        )
+        assert "error" not in result
+        buf = self._read_buffer(client, p)
+        assert 'Logger::getInstance().debug("Count: "' in buf
+        assert '#include "utils/Logger.hpp"' in buf
 
 
 class TestNvimClientEdgeCases:
