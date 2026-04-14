@@ -120,6 +120,7 @@ _GET_STATE_LUA = """\
 local active_n = select(1, ...) or 20
 local inactive_n = select(2, ...) or active_n
 local cur_win = vim.api.nvim_get_current_win()
+local alt_win = vim.fn.win_getid(vim.fn.winnr('#'))
 local cur_mode = vim.fn.mode()
 
 local function get_context(b, from, to, n)
@@ -145,7 +146,7 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
         total_lines = vim.api.nvim_buf_line_count(b),
         modified = vim.bo[b].modified,
         buftype = vim.bo[b].buftype,
-        active = is_active,
+        role = is_active and "active" or (w == alt_win and "alternate" or nil),
         line = wline,
         col = wcol,
         indent = {
@@ -234,6 +235,9 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     end
     if is_active then
         table.insert(wins, 1, winfo)
+    elseif w == alt_win then
+        local pos = math.min(2, #wins + 1)
+        table.insert(wins, pos, winfo)
     else
         wins[#wins + 1] = winfo
     end

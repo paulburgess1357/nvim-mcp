@@ -70,6 +70,7 @@ async def get_buf_diagnostics(file: str) -> list:
     """Get LSP diagnostics for a single Neovim buffer.
 
     Returns a list of {file, line, col, severity, message, source}.
+    The file must be open in Neovim.
     """
     return await manager.get_diagnostics(file=file)
 
@@ -83,6 +84,7 @@ async def find_and_replace_buf(
     """Find and replace text in a Neovim buffer (in-memory, not disk).
 
     old_string must match exactly once in the buffer.
+    Creates the buffer if it doesn't already exist.
     """
     return await manager.edit_buffer(
         file=file, new_string=new_string, old_string=old_string
@@ -133,13 +135,17 @@ async def get_state() -> dict:
     Returns: mode, cwd, buffers, modified_buffers, current_tab, tab_count.
 
     windows — list of visible windows (current tab only). The active
-    window is always first. Each entry:
-      file, filetype, total_lines, modified, buftype, active, line, col.
+    window is always first, the alternate window (previous) is second. Each entry:
+      file, filetype, total_lines, modified, buftype, line, col,
+      indent: {expandtab, shiftwidth, tabstop}.
       Optional per-window fields:
+      - role: "active" for the current window, "alternate" for the previous window.
       - context: lines around the cursor with line numbers.
       - selection: {start_line, start_col, end_line, end_col} in visual mode.
       - folds: list of [start, end] closed fold ranges.
       - diagnostics_summary: {error, warning, info, hint} counts.
+      - marks: list of {mark, line, col} for lowercase (a-z) marks.
+      - mcp_highlights: list of {start_line, end_line, color} for active highlights.
     """
     return await manager.get_state()
 
@@ -155,6 +161,7 @@ async def highlight_range(
 
     Does not modify buffer content. Lines are 1-indexed. color is any
     Neovim color name or hex value (e.g. "DarkGreen", "#334455").
+    The file must be open in Neovim.
     """
     return await manager.highlight_buffer(
         file=file, start_line=start_line, end_line=end_line, color=color,
@@ -186,7 +193,9 @@ async def highlight_ranges(
 
 @mcp.tool()
 async def clear_highlights(file: str) -> dict:
-    """Remove all MCP highlights from a Neovim buffer."""
+    """Remove all MCP highlights from a Neovim buffer.
+
+    The file must be open in Neovim."""
     return await manager.clear_highlights(file=file)
 
 
