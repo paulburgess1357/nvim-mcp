@@ -94,7 +94,9 @@ async def write_full_buf(
     file: str,
     content: str,
 ) -> dict:
-    """Set the entire content of a Neovim buffer (in-memory, not disk)."""
+    """Set the entire content of a Neovim buffer (in-memory, not disk).
+
+    Creates the buffer if it doesn't already exist."""
     return await manager.edit_buffer(file=file, new_string=content)
 
 
