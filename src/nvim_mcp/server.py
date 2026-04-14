@@ -128,8 +128,7 @@ async def nvim_buf_read_range(
 async def nvim_state() -> dict:
     """Snapshot of the current Neovim session.
 
-    Returns: mode, cwd, relativenumber, buffers, modified_buffers,
-    current_tab, tab_count.
+    Returns: mode, cwd, buffers, modified_buffers, current_tab, tab_count.
 
     windows — list of visible windows (current tab only). The active
     window is always first. Each entry:

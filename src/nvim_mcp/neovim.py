@@ -254,7 +254,6 @@ end
 return {
     mode = cur_mode,
     cwd = vim.fn.getcwd(),
-    relativenumber = vim.wo.relativenumber,
     modified_buffers = modified,
     buffers = buffers,
     current_tab = vim.fn.tabpagenr(),
