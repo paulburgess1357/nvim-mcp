@@ -458,7 +458,7 @@ class NeovimManager:
         socket_path: str | None = None,
         terminal_pid: int | None = None,
         index: int | None = None,
-    ) -> str:
+    ) -> dict:
         instances = await self.discover()
 
         if socket_path is not None:
@@ -466,30 +466,28 @@ class NeovimManager:
         elif terminal_pid is not None:
             target = self._find_socket_for_terminal(terminal_pid, instances)
             if target is None:
-                return (
-                    f"Error: no Neovim instance found for terminal PID "
-                    f"{terminal_pid}."
-                )
+                return {
+                    "error": f"No Neovim instance found for terminal PID {terminal_pid}."
+                }
         elif index is not None:
             if index < 1 or index > len(instances):
-                return (
-                    f"Error: index {index} out of range. "
-                    f"Found {len(instances)} instance(s)."
-                )
+                return {
+                    "error": f"Index {index} out of range. Found {len(instances)} instance(s)."
+                }
             target = instances[index - 1].socket_path
         elif len(instances) == 1:
             target = instances[0].socket_path
         elif len(instances) == 0:
-            return "Error: no Neovim instances found. Is Neovim running?"
+            return {"error": "No Neovim instances found. Is Neovim running?"}
         else:
-            return self._format_instance_list(instances)
+            return self._format_instance_dict(instances)
 
         async with self._lock:
             try:
                 self._nvim = await self._connect_to(target)
                 self._socket_path = target
             except (asyncio.TimeoutError, OSError) as e:
-                return f"Error: could not connect to {target}: {e}"
+                return {"error": f"Could not connect to {target}: {e}"}
 
             try:
                 state = await asyncio.to_thread(self._get_state_sync)
@@ -501,11 +499,11 @@ class NeovimManager:
                 cwd = "?"
                 current_file = "?"
 
-        return f"Connected to nvim at {target} (cwd: {cwd}, file: {current_file})"
+        return {"connected": target, "cwd": cwd, "file": current_file}
 
     # -- Send ----------------------------------------------------------------
 
-    async def send_command(self, command: str | list[str]) -> str | list[str]:
+    async def send_command(self, command: str | list[str]) -> dict | list[dict]:
         async with self._lock:
             if self._nvim is None:
                 err = await self._auto_connect_unlocked()
@@ -519,7 +517,7 @@ class NeovimManager:
                 self._run_commands_sync, command
             )
 
-    async def send_keys(self, keys: str) -> str:
+    async def send_keys(self, keys: str) -> dict:
         async with self._lock:
             if self._nvim is None:
                 err = await self._auto_connect_unlocked()
@@ -527,25 +525,25 @@ class NeovimManager:
                     return err
             return await self._retry_on_disconnect(self._run_keys_sync, keys)
 
-    def _run_command_sync(self, command: str) -> str:
+    def _run_command_sync(self, command: str) -> dict:
         assert self._nvim is not None
         result = self._nvim.exec_lua(_EXEC_COMMAND_LUA, command)
         output = result.get("output", "") or ""
         errmsg = result.get("errmsg", "") or ""
-        parts: list[str] = []
+        resp: dict[str, str] = {}
         if output:
-            parts.append(output)
+            resp["output"] = output
         if errmsg:
-            parts.append(f"E: {errmsg}")
-        return "\n".join(parts) if parts else "(no output)"
+            resp["error"] = errmsg
+        return resp if resp else {"output": "(no output)"}
 
-    def _run_commands_sync(self, commands: list[str]) -> list[str]:
+    def _run_commands_sync(self, commands: list[str]) -> list[dict]:
         return [self._run_command_sync(cmd) for cmd in commands]
 
-    def _run_keys_sync(self, keys: str) -> str:
+    def _run_keys_sync(self, keys: str) -> dict:
         assert self._nvim is not None
         self._nvim.input("<Esc>" + keys)
-        return ""
+        return {"sent": keys}
 
     # -- State ---------------------------------------------------------------
 
@@ -554,7 +552,7 @@ class NeovimManager:
             if self._nvim is None:
                 err = await self._auto_connect_unlocked()
                 if err is not None:
-                    raise RuntimeError(err)
+                    raise RuntimeError(err.get("error", str(err)))
             return await self._retry_on_disconnect(self._get_state_sync)
 
     def _get_state_sync(self) -> dict:
@@ -570,14 +568,17 @@ class NeovimManager:
             if self._nvim is None:
                 err = await self._auto_connect_unlocked()
                 if err is not None:
-                    raise RuntimeError(err)
+                    raise RuntimeError(err.get("error", str(err)))
             return await self._retry_on_disconnect(
                 self._get_diagnostics_sync, file
             )
 
     def _get_diagnostics_sync(self, file: str | None) -> list:
         assert self._nvim is not None
-        return self._nvim.exec_lua(_GET_DIAGNOSTICS_LUA, file)
+        result = self._nvim.exec_lua(_GET_DIAGNOSTICS_LUA, file)
+        if isinstance(result, dict) and "error" in result:
+            raise RuntimeError(result["error"])
+        return result
 
     # -- Buffer edit ---------------------------------------------------------
 
@@ -591,7 +592,7 @@ class NeovimManager:
             if self._nvim is None:
                 err = await self._auto_connect_unlocked()
                 if err is not None:
-                    raise RuntimeError(err)
+                    raise RuntimeError(err.get("error", str(err)))
             return await self._retry_on_disconnect(
                 self._edit_buf_sync, file, old_string, new_string
             )
@@ -617,7 +618,7 @@ class NeovimManager:
             if self._nvim is None:
                 err = await self._auto_connect_unlocked()
                 if err is not None:
-                    raise RuntimeError(err)
+                    raise RuntimeError(err.get("error", str(err)))
             return await self._retry_on_disconnect(
                 self._read_buf_sync, file, start_line, end_line
             )
@@ -644,7 +645,7 @@ class NeovimManager:
             if self._nvim is None:
                 err = await self._auto_connect_unlocked()
                 if err is not None:
-                    raise RuntimeError(err)
+                    raise RuntimeError(err.get("error", str(err)))
             return await self._retry_on_disconnect(
                 self._highlight_buf_sync, file, start_line, end_line, color,
             )
@@ -666,7 +667,7 @@ class NeovimManager:
             if self._nvim is None:
                 err = await self._auto_connect_unlocked()
                 if err is not None:
-                    raise RuntimeError(err)
+                    raise RuntimeError(err.get("error", str(err)))
             return await self._retry_on_disconnect(
                 self._clear_highlights_sync, file,
             )
@@ -692,19 +693,16 @@ class NeovimManager:
         """
         instances = await self.discover()
         if len(instances) == 0:
-            return "Error: no Neovim instances found. Is Neovim running?"
+            return {"error": "No Neovim instances found. Is Neovim running?"}
         if len(instances) > 1:
-            return (
-                "Error: multiple Neovim instances found. Connect first:\n"
-                + self._format_instance_list(instances)
-            )
+            return self._format_instance_dict(instances)
 
         target = instances[0].socket_path
         try:
             self._nvim = await self._connect_to(target)
             self._socket_path = target
         except (asyncio.TimeoutError, OSError) as e:
-            return f"Error: could not auto-connect to {target}: {e}"
+            return {"error": f"Could not auto-connect to {target}: {e}"}
         return None
 
     async def _reconnect_unlocked(self) -> None:
@@ -868,15 +866,16 @@ class NeovimManager:
         return False
 
     @staticmethod
-    def _format_instance_list(instances: list[NvimInstance]) -> str:
-        lines = ["Multiple Neovim instances found:"]
-        for i, inst in enumerate(instances, 1):
-            file_display = inst.current_file or "(none)"
-            lines.append(
-                f"  {i}. {inst.socket_path} "
-                f"(cwd: {inst.cwd}, file: {file_display})"
-            )
-        lines.append(
-            "\nUse index=N, socket_path=..., or terminal_pid=... to select one."
-        )
-        return "\n".join(lines)
+    def _format_instance_dict(instances: list[NvimInstance]) -> dict:
+        return {
+            "error": "Multiple Neovim instances found. Use index, socket_path, or terminal_pid to select one.",
+            "instances": [
+                {
+                    "index": i,
+                    "socket_path": inst.socket_path,
+                    "cwd": inst.cwd,
+                    "file": inst.current_file or "(none)",
+                }
+                for i, inst in enumerate(instances, 1)
+            ],
+        }

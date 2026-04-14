@@ -15,7 +15,7 @@ async def nvim_connect(
     socket_path: str | None = None,
     terminal_pid: int | None = None,
     index: int | None = None,
-) -> str:
+) -> dict:
     """Connect to a Neovim instance.
 
     Called with no arguments: auto-connects when exactly one instance
@@ -35,7 +35,7 @@ async def nvim_connect(
 
 
 @mcp.tool()
-async def nvim_command(command: str | list[str]) -> str | list[str]:
+async def nvim_command(command: str | list[str]) -> dict | list[dict]:
     """Run ex commands in Neovim, no leading ':'.
 
     Accepts a single command string or a list of commands.
@@ -46,7 +46,7 @@ async def nvim_command(command: str | list[str]) -> str | list[str]:
 
 
 @mcp.tool()
-async def nvim_keys(keys: str) -> str:
+async def nvim_keys(keys: str) -> dict:
     """Send keystrokes to Neovim.
 
     Esc is prepended automatically, so the input always starts in normal
