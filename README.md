@@ -31,24 +31,25 @@ It talks to Neovim directly over its default **Unix socket** using msgpack-RPC a
 
 ## Tools
 
-| Tool                       | Purpose                                                                                              |
-| -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **`nvim_state`**           | Snapshot of the session: mode, cwd, buffers, and per-window file, cursor, context, folds, diagnostics. |
-| **`nvim_diagnostics`**     | LSP diagnostics from all buffers.                                                                    |
-| **`nvim_buf_diagnostics`** | LSP diagnostics for a single buffer.                                                                 |
-| **`nvim_buf_replace`**     | Find and replace text in a buffer. `old_string` must match exactly once.                             |
-| **`nvim_buf_write`**       | Set the entire content of a buffer.                                                                  |
-| **`nvim_buf_read`**        | Read an entire buffer.                                                                               |
-| **`nvim_buf_read_range`**  | Read a line range from a buffer. Takes `start_line` and `end_line` (1-indexed).                      |
-| **`nvim_command`**         | Run ex commands (no leading `:`). Single string or list.                                             |
-| **`nvim_keys`**            | Send keystrokes. Esc is prepended automatically.                                                     |
-| **`nvim_highlight_range`** | Highlight lines with colored extmarks. Takes `file`, `start_line`, `end_line`, `color`.              |
-| **`nvim_clear_highlights`**| Remove all MCP highlights from a buffer.                                                             |
-| **`nvim_connect`**         | Connect to a Neovim instance.                                                                        |
+| Tool                          | Purpose                                                                                              |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **`get_state`**               | Snapshot of the session: mode, cwd, buffers, and per-window file, cursor, context, folds, diagnostics. |
+| **`get_all_diagnostics`**     | LSP diagnostics from all buffers.                                                                    |
+| **`get_buf_diagnostics`**     | LSP diagnostics for a single buffer.                                                                 |
+| **`find_and_replace_buf`**    | Find and replace text in a buffer. `old_string` must match exactly once.                             |
+| **`write_full_buf`**          | Set the entire content of a buffer.                                                                  |
+| **`read_full_buf`**           | Read an entire buffer.                                                                               |
+| **`read_buf_range`**          | Read a line range from a buffer. Takes `start_line` and `end_line` (1-indexed).                      |
+| **`send_command`**            | Run ex commands (no leading `:`). Single string or list.                                             |
+| **`send_keys`**               | Send keystrokes. Esc is prepended automatically.                                                     |
+| **`highlight_range`**         | Highlight lines with colored extmarks. Takes `file`, `start_line`, `end_line`, `color`.              |
+| **`highlight_ranges`**        | Highlight multiple ranges at once with different colors.                                             |
+| **`clear_highlights`**        | Remove all MCP highlights from a buffer.                                                             |
+| **`connect`**                 | Connect to a Neovim instance.                                                                        |
 
 ## Multi-instance
 
-One Neovim instance running? Tools auto-connect. Multiple? `nvim_connect` lists them — pick by `index`, `socket_path`, or `terminal_pid`. Set `NVIM_SOCKET_PATH` to skip discovery entirely.
+One Neovim instance running? Tools auto-connect. Multiple? `connect` lists them — pick by `index`, `socket_path`, or `terminal_pid`. Set `NVIM_SOCKET_PATH` to skip discovery entirely.
 
 ## Environment
 
@@ -60,7 +61,7 @@ One Neovim instance running? Tools auto-connect. Multiple? `nvim_connect` lists 
 
 ## Clearing highlights
 
-`nvim_clear_highlights` clears a buffer via the MCP tool, but you can also clear them directly in Neovim. Add this to your config:
+`clear_highlights` clears a buffer via the MCP tool, but you can also clear them directly in Neovim. Add this to your config:
 
 ```lua
 vim.api.nvim_create_user_command('McpClearHighlights', function()
