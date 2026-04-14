@@ -277,14 +277,14 @@ end
 
 -- Write mode: no old_str means set entire buffer content
 if old_str == nil or old_str == "" then
-    local new_lines = vim.split(new_str, "\n", {plain = true})
+    local new_lines = vim.split(new_str, "\\n", {plain = true})
     vim.api.nvim_buf_set_lines(b, 0, -1, false, new_lines)
     return {total_lines = #new_lines}
 end
 
 -- Replace mode: find old_str in buffer, replace with new_str
 local lines = vim.api.nvim_buf_get_lines(b, 0, -1, false)
-local text = table.concat(lines, "\n")
+local text = table.concat(lines, "\\n")
 
 local s, e = string.find(text, old_str, 1, true)
 if not s then
@@ -296,15 +296,15 @@ end
 
 -- Compute affected line range (0-indexed)
 local before = text:sub(1, s - 1)
-local start_line = select(2, before:gsub("\n", ""))
-local end_line = start_line + select(2, old_str:gsub("\n", ""))
+local start_line = select(2, before:gsub("\\n", ""))
+local end_line = start_line + select(2, old_str:gsub("\\n", ""))
 
 -- Preserve text on start_line before match and on end_line after match
-local prefix = before:match("[^\n]*$") or ""
-local suffix = (text:sub(e + 1)):match("^[^\n]*") or ""
+local prefix = before:match("[^\\n]*$") or ""
+local suffix = (text:sub(e + 1)):match("^[^\\n]*") or ""
 
 local replacement = prefix .. new_str .. suffix
-local new_lines = vim.split(replacement, "\n", {plain = true})
+local new_lines = vim.split(replacement, "\\n", {plain = true})
 vim.api.nvim_buf_set_lines(b, start_line, end_line + 1, false, new_lines)
 
 return {
