@@ -473,14 +473,14 @@ This tests a realistic developer workflow end-to-end.
 3. Add a docstring to `divide` in `calculator.py`:
    `find_and_replace_buf("tests/fixtures/calculator.py", "def divide(a: int, b: int) -> float:\n    return a / b", "def divide(a: int, b: int) -> float:\n    \"\"\"Divide a by b. Raises ZeroDivisionError if b is 0.\"\"\"\n    return a / b")`
 4. Read back the range to verify:
-   `read_buf_range("tests/fixtures/calculator.py", 17, 20)`
+   `read_buf_range("tests/fixtures/calculator.py", 16, 19)`
 5. Add a new section to `notes.md`:
    `find_and_replace_buf("tests/fixtures/notes.md", "## Section Three", "## Section 2.5\n\nAdded during testing.\n\n## Section Three")`
 6. Read back to verify:
    `read_full_buf("tests/fixtures/notes.md")`
 7. Call `get_state`. Verify both files are in `modified_buffers`.
 8. Highlight the edited regions:
-   `highlight_ranges([{"file": "tests/fixtures/calculator.py", "start_line": 17, "end_line": 19, "color": "#3a5f3a"}, {"file": "tests/fixtures/notes.md", "start_line": 13, "end_line": 16, "color": "#3a5f3a"}])`
+   `highlight_ranges([{"file": "tests/fixtures/calculator.py", "start_line": 16, "end_line": 18, "color": "#3a5f3a"}, {"file": "tests/fixtures/notes.md", "start_line": 15, "end_line": 18, "color": "#3a5f3a"}])`
 9. Verify highlights on both windows via `get_state`.
 10. Clear all highlights:
     `clear_highlights("tests/fixtures/calculator.py")`
