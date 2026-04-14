@@ -58,6 +58,21 @@ One Neovim instance running? Tools auto-connect. Multiple? `nvim_connect` lists 
 | `NVIM_MCP_ACTIVE_CONTEXT_LINES`   | `20`              | Lines above/below cursor in the active window. Set to `0` to disable.          |
 | `NVIM_MCP_INACTIVE_CONTEXT_LINES` | `20`              | Lines above/below cursor in inactive windows. Set to `0` to disable.           |
 
+## Clearing highlights
+
+`nvim_clear_highlights` clears a buffer via the MCP tool, but you can also clear them directly in Neovim. Add this to your config:
+
+```lua
+vim.api.nvim_create_user_command('McpClearHighlights', function()
+  local ns = vim.api.nvim_create_namespace('mcp_highlight')
+  for _, b in ipairs(vim.api.nvim_list_bufs()) do
+    vim.api.nvim_buf_clear_namespace(b, ns, 0, -1)
+  end
+end, {})
+```
+
+Then `:McpClearHighlights` removes all MCP highlights from every buffer.
+
 ## Demo
 
 Open a file in Neovim, then paste this into your AI assistant:

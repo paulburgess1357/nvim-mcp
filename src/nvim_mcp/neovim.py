@@ -148,6 +148,11 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
         active = is_active,
         line = wline,
         col = wcol,
+        indent = {
+            expandtab = vim.bo[b].expandtab,
+            shiftwidth = vim.bo[b].shiftwidth,
+            tabstop = vim.bo[b].tabstop,
+        },
     }
     local ctx_n = is_active and active_n or inactive_n
     if is_active and (cur_mode == 'v' or cur_mode == 'V' or cur_mode == '\\22') then
@@ -195,6 +200,37 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     end
     if dcounts.error + dcounts.warning + dcounts.info + dcounts.hint > 0 then
         winfo.diagnostics_summary = dcounts
+    end
+    local mcp_ns = vim.api.nvim_create_namespace('mcp_highlight')
+    local marks = vim.api.nvim_buf_get_extmarks(b, mcp_ns, 0, -1, {details = true})
+    if #marks > 0 then
+        local highlights = {}
+        for _, m in ipairs(marks) do
+            local line = m[2] + 1
+            local group = m[4].line_hl_group or ""
+            local bg = ""
+            if group ~= "" then
+                local hl = vim.api.nvim_get_hl(0, {name = group})
+                if hl.bg then bg = string.format("#%06x", hl.bg) end
+            end
+            local prev = highlights[#highlights]
+            if prev and prev.color == bg and prev.end_line == line - 1 then
+                prev.end_line = line
+            else
+                highlights[#highlights + 1] = {start_line = line, end_line = line, color = bg}
+            end
+        end
+        winfo.mcp_highlights = highlights
+    end
+    local buf_marks = {}
+    for c = string.byte('a'), string.byte('z') do
+        local mark = vim.api.nvim_buf_get_mark(b, string.char(c))
+        if mark[1] > 0 then
+            buf_marks[#buf_marks + 1] = {mark = string.char(c), line = mark[1], col = mark[2] + 1}
+        end
+    end
+    if #buf_marks > 0 then
+        winfo.marks = buf_marks
     end
     if is_active then
         table.insert(wins, 1, winfo)
