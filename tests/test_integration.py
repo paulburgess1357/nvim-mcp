@@ -12,7 +12,7 @@ import time
 
 import pytest
 
-from nvim_mcp.neovim import NvimClient, NvimError, _EDIT_BUF_LUA, _READ_BUF_LUA
+from nvim_mcp.neovim import NvimClient, NvimError, _EDIT_BUF_LUA, _READ_BUF_LUA, _HIGHLIGHT_LUA
 
 pytestmark = pytest.mark.skipif(
     not shutil.which("nvim"), reason="nvim not installed"
@@ -366,6 +366,84 @@ class TestBufEdit:
         buf = self._read_buffer(client, p)
         assert 'Logger::getInstance().debug("Count: "' in buf
         assert '#include "utils/Logger.hpp"' in buf
+
+
+class TestHighlight:
+    """Test nvim_highlight Lua against a real Neovim."""
+
+    _buf_counter = 0
+
+    @pytest.fixture()
+    def client(self, nvim_socket):
+        c = NvimClient.connect(nvim_socket)
+        yield c
+        c.close()
+
+    def _unique_path(self):
+        TestHighlight._buf_counter += 1
+        return f"/tmp/nvim_test_hl_{os.getpid()}_{TestHighlight._buf_counter}.txt"
+
+    def _setup_buffer(self, client, path, content):
+        client.exec_lua(
+            "local f, c = ...\n"
+            "vim.cmd('noswapfile edit ' .. vim.fn.fnameescape(f))\n"
+            "local b = vim.fn.bufnr(f)\n"
+            "vim.api.nvim_buf_set_lines(b, 0, -1, false, vim.split(c, '\\n', {plain=true}))",
+            path, content,
+        )
+
+    def test_highlight_range(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "line1\nline2\nline3")
+        result = client.exec_lua(_HIGHLIGHT_LUA, p, 1, 2, "Yellow", None)
+        assert "error" not in result
+        assert result["highlighted"] == 2
+
+    def test_highlight_single_line(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "a\nb\nc")
+        result = client.exec_lua(_HIGHLIGHT_LUA, p, 2, 2, "DarkGreen", None)
+        assert "error" not in result
+        assert result["highlighted"] == 1
+
+    def test_highlight_hex_color(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "a\nb\nc\nd\ne")
+        result = client.exec_lua(_HIGHLIGHT_LUA, p, 3, 4, "#ff6666", None)
+        assert "error" not in result
+        assert result["highlighted"] == 2
+
+    def test_clear_highlights(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "a\nb\nc")
+        client.exec_lua(_HIGHLIGHT_LUA, p, 1, 3, "Yellow", None)
+        result = client.exec_lua(_HIGHLIGHT_LUA, p, None, None, None, True)
+        assert result.get("cleared") is True
+
+    def test_invalid_buffer_returns_error(self, client):
+        result = client.exec_lua(
+            _HIGHLIGHT_LUA,
+            "/tmp/nvim_test_no_such_buffer_ever.txt",
+            1, 1, "Red", None,
+        )
+        assert "error" in result
+        assert "not found" in result["error"].lower()
+
+    def test_missing_lines_returns_error(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "content")
+        result = client.exec_lua(_HIGHLIGHT_LUA, p, None, None, None, None)
+        assert "error" in result
+        result2 = client.exec_lua(_HIGHLIGHT_LUA, p, 1, None, None, None)
+        assert "error" in result2
+
+    def test_highlight_does_not_modify_content(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "hello\nworld")
+        client.exec_lua(_HIGHLIGHT_LUA, p, 1, 2, "#334455", None)
+        buf = client.exec_lua(_READ_BUF_LUA, p, None, None)
+        lines = [l.split(": ", 1)[1] for l in buf["lines"]]
+        assert lines == ["hello", "world"]
 
 
 class TestNvimClientEdgeCases:

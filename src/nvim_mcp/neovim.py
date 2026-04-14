@@ -332,6 +332,47 @@ end
 return {lines = lines, total_lines = total}
 """
 
+_HIGHLIGHT_LUA = r"""
+local file, start_line, end_line, color, clear = ...
+if type(start_line) == "userdata" then start_line = nil end
+if type(end_line) == "userdata" then end_line = nil end
+if type(color) == "userdata" then color = nil end
+if type(clear) == "userdata" then clear = nil end
+
+local b = vim.fn.bufnr(file)
+if b == -1 then
+    return {error = "Buffer not found: " .. tostring(file)}
+end
+
+local ns = vim.api.nvim_create_namespace('mcp_highlight')
+
+if clear then
+    vim.api.nvim_buf_clear_namespace(b, ns, 0, -1)
+    return {cleared = true}
+end
+
+if not start_line or not end_line then
+    return {error = "start_line and end_line are required (pass clear=true to remove highlights)"}
+end
+
+local total = vim.api.nvim_buf_line_count(b)
+local sl = start_line
+local el = end_line
+color = color or "Yellow"
+if sl < 1 then sl = 1 end
+if el > total then el = total end
+
+local group = "McpHl_" .. color:gsub("[^%w]", "_")
+vim.api.nvim_set_hl(0, group, {bg = color})
+
+for line = sl, el do
+    vim.api.nvim_buf_set_extmark(b, ns, line - 1, 0, {
+        line_hl_group = group,
+    })
+end
+return {highlighted = el - sl + 1}
+"""
+
 _EXEC_COMMAND_LUA = """\
 local input = ...
 vim.v.errmsg = ''
@@ -554,6 +595,52 @@ class NeovimManager:
     ) -> dict:
         assert self._nvim is not None
         return self._nvim.exec_lua(_READ_BUF_LUA, file, start_line, end_line)
+
+    # -- Buffer highlight ----------------------------------------------------
+
+    async def highlight_buffer(
+        self,
+        file: str,
+        start_line: int,
+        end_line: int,
+        color: str = "Yellow",
+    ) -> dict:
+        async with self._lock:
+            if self._nvim is None:
+                err = await self._auto_connect_unlocked()
+                if err is not None:
+                    raise RuntimeError(err)
+            return await self._retry_on_disconnect(
+                self._highlight_buf_sync, file, start_line, end_line, color,
+            )
+
+    def _highlight_buf_sync(
+        self,
+        file: str,
+        start_line: int,
+        end_line: int,
+        color: str,
+    ) -> dict:
+        assert self._nvim is not None
+        return self._nvim.exec_lua(
+            _HIGHLIGHT_LUA, file, start_line, end_line, color, False
+        )
+
+    async def clear_highlights(self, file: str) -> dict:
+        async with self._lock:
+            if self._nvim is None:
+                err = await self._auto_connect_unlocked()
+                if err is not None:
+                    raise RuntimeError(err)
+            return await self._retry_on_disconnect(
+                self._clear_highlights_sync, file,
+            )
+
+    def _clear_highlights_sync(self, file: str) -> dict:
+        assert self._nvim is not None
+        return self._nvim.exec_lua(
+            _HIGHLIGHT_LUA, file, None, None, None, True
+        )
 
     # -- Connection helpers (called with lock held) --------------------------
 

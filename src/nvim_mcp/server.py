@@ -68,11 +68,21 @@ async def nvim_keys(keys: str) -> str:
 
 
 @mcp.tool()
-async def nvim_diagnostics(file: str | None = None) -> list:
-    """Get LSP diagnostics from Neovim.
+async def nvim_diagnostics() -> list:
+    """Get LSP diagnostics from all buffers in Neovim.
 
     Returns a list of {file, line, col, severity, message, source}.
-    Optional file path to limit to one buffer; omit for all buffers.
+
+    Auto-connects when exactly one Neovim instance is running.
+    """
+    return await manager.get_diagnostics()
+
+
+@mcp.tool()
+async def nvim_buf_diagnostics(file: str) -> list:
+    """Get LSP diagnostics for a single Neovim buffer.
+
+    Returns a list of {file, line, col, severity, message, source}.
 
     Auto-connects when exactly one Neovim instance is running.
     """
@@ -80,16 +90,15 @@ async def nvim_diagnostics(file: str | None = None) -> list:
 
 
 @mcp.tool()
-async def nvim_buf_edit(
+async def nvim_buf_replace(
     file: str,
+    old_string: str,
     new_string: str,
-    old_string: str | None = None,
 ) -> dict:
-    """Edit a Neovim buffer (in-memory, not disk).
+    """Find and replace text in a Neovim buffer (in-memory, not disk).
 
-    Provide old_string and new_string to find and replace text.
-    old_string must match exactly once. Omit old_string to set the
-    entire buffer content. Creates the buffer if not already open.
+    old_string must match exactly once in the buffer. Creates the
+    buffer if not already open.
 
     Auto-connects when exactly one Neovim instance is running.
     """
@@ -99,15 +108,42 @@ async def nvim_buf_edit(
 
 
 @mcp.tool()
-async def nvim_buf_read(
+async def nvim_buf_write(
     file: str,
-    start_line: int | None = None,
-    end_line: int | None = None,
+    content: str,
 ) -> dict:
-    """Read lines from a Neovim buffer (in-memory, not disk).
+    """Set the entire content of a Neovim buffer (in-memory, not disk).
 
-    Returns lines prefixed with line numbers. Optional start_line/end_line
-    to read a range. The file must be open in Neovim.
+    Replaces all lines in the buffer. Creates the buffer if not
+    already open.
+
+    Auto-connects when exactly one Neovim instance is running.
+    """
+    return await manager.edit_buffer(file=file, new_string=content)
+
+
+@mcp.tool()
+async def nvim_buf_read(file: str) -> dict:
+    """Read an entire Neovim buffer (in-memory, not disk).
+
+    Returns lines prefixed with line numbers. The file must be open
+    in Neovim.
+
+    Auto-connects when exactly one Neovim instance is running.
+    """
+    return await manager.read_buffer(file=file)
+
+
+@mcp.tool()
+async def nvim_buf_read_range(
+    file: str,
+    start_line: int,
+    end_line: int,
+) -> dict:
+    """Read a line range from a Neovim buffer (in-memory, not disk).
+
+    Returns lines prefixed with line numbers. Lines are 1-indexed.
+    The file must be open in Neovim.
 
     Auto-connects when exactly one Neovim instance is running.
     """
@@ -147,6 +183,34 @@ async def nvim_state() -> dict:
     Auto-connects when exactly one Neovim instance is running.
     """
     return await manager.get_state()
+
+
+@mcp.tool()
+async def nvim_highlight_range(
+    file: str,
+    start_line: int,
+    end_line: int,
+    color: str = "Yellow",
+) -> dict:
+    """Highlight lines in a Neovim buffer with colored annotations.
+
+    Does not modify buffer content. Lines are 1-indexed. color is any
+    Neovim color name or hex value (e.g. "DarkGreen", "#334455").
+
+    Auto-connects when exactly one Neovim instance is running.
+    """
+    return await manager.highlight_buffer(
+        file=file, start_line=start_line, end_line=end_line, color=color,
+    )
+
+
+@mcp.tool()
+async def nvim_clear_highlights(file: str) -> dict:
+    """Remove all MCP highlights from a Neovim buffer.
+
+    Auto-connects when exactly one Neovim instance is running.
+    """
+    return await manager.clear_highlights(file=file)
 
 
 def main() -> None:

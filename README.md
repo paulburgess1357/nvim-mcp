@@ -34,11 +34,16 @@ It talks to Neovim directly over its default **Unix socket** using msgpack-RPC a
 | Tool               | Purpose                                                                                                                                                                                                                                                                            |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`nvim_state`**      | Snapshot of the session: mode, cwd, open buffers, and per-window details (file, cursor, filetype, **context lines**, folds, visual selection, and **diagnostic summary**). |
-| **`nvim_diagnostics`**| Get LSP diagnostics: file, line, col, severity, message, source. Optional file path to limit to one buffer.                                                                |
-| **`nvim_buf_edit`**   | Edit a buffer (in-memory, not disk). Find-and-replace with old_string/new_string, or set full content. Creates the buffer if not already open.                             |
-| **`nvim_buf_read`**   | Read lines from a buffer (in-memory, not disk). Supports optional line range.                                                                                              |
+| **`nvim_diagnostics`**| Get LSP diagnostics from all buffers: file, line, col, severity, message, source.                                                                                          |
+| **`nvim_buf_diagnostics`** | Get LSP diagnostics for a single buffer.                                                                                                                              |
+| **`nvim_buf_replace`**| Find and replace text in a buffer (in-memory, not disk). `old_string` must match exactly once. Creates the buffer if not already open.                                     |
+| **`nvim_buf_write`** | Set the entire content of a buffer (in-memory, not disk). Creates the buffer if not already open.                                                                           |
+| **`nvim_buf_read`**   | Read an entire buffer (in-memory, not disk).                                                                                                                               |
+| **`nvim_buf_read_range`** | Read a line range from a buffer (in-memory, not disk). Takes `start_line` and `end_line` (1-indexed).                                                                  |
 | **`nvim_command`**    | Run ex commands (no leading `:`). Accepts a single string or a list. E.g. `"w"`, `"e /path"`, `"lua vim.print(...)"`, or `["wincmd p", "checktime", "wincmd p"]`.          |
 | **`nvim_keys`**       | Send keystrokes. E.g. `"gg"`, `"17GVG"`, `"za"`. Esc is prepended automatically.                                                                                          |
+| **`nvim_highlight_range`** | Highlight lines with colored annotations (extmarks). Takes `file`, `start_line`, `end_line`, and `color` (name or hex).                                               |
+| **`nvim_clear_highlights`** | Remove all MCP highlights from a buffer.                                                                                                                              |
 | **`nvim_connect`**    | Connect to a Neovim instance. Auto-connects when only one exists; lists all when multiple are found.                                                                       |
 
 ## Multi-instance
