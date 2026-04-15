@@ -38,16 +38,22 @@ From a local clone, use `uv run` instead:
 <details>
 <summary><strong>Claude Code</strong></summary>
 
+**Global** (available in every project):
+
 ```bash
-claude mcp add nvim-mcp -- uvx nvim-mcp
+claude mcp add nvim-mcp --scope user -- uvx nvim-mcp
 ```
 
-Add `--scope user` to make it global, or `--scope project` for the current project only.
+**Project only** (current project):
+
+```bash
+claude mcp add nvim-mcp --scope project -- uvx nvim-mcp
+```
 
 From a local clone:
 
 ```bash
-claude mcp add nvim-mcp -- uv run --directory <path/to/nvim-mcp> nvim-mcp
+claude mcp add nvim-mcp --scope user -- uv run --directory <path/to/nvim-mcp> nvim-mcp
 ```
 
 </details>
