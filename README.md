@@ -95,7 +95,7 @@ end, {})
 
 Then `:McpClearHighlights` removes all MCP highlights from every buffer.
 
-## Demo
+## Setup Test
 
 Open a file in Neovim, then paste this into your AI assistant:
 
