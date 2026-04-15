@@ -6,7 +6,26 @@
 
 It talks to Neovim directly over its default **Unix socket** using msgpack-RPC and discovers running instances automatically.
 
-<video src="https://github.com/user-attachments/assets/d4a9267a-9e79-40ce-ac84-50411c84b608"></video>
+<details>
+<summary>Using nvim-mcp in Cursor</summary>
+
+<video src="https://github.com/user-attachments/assets/388f5f39-ab4d-4747-9eca-e09c666439ee"></video>
+
+</details>
+
+<details>
+<summary>Using nvim-mcp across two terminals</summary>
+
+<video src="https://github.com/user-attachments/assets/6de3f7a4-9c12-4a2f-96d9-d02d21935d37"></video>
+
+</details>
+
+<details>
+<summary>Using nvim-mcp with a terminal inside Neovim</summary>
+
+<video src="https://github.com/user-attachments/assets/93fd17a6-0f93-48db-8428-d1cba51e29f2"></video>
+
+</details>
 
 ## Setup
 
