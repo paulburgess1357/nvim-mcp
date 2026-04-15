@@ -85,3 +85,5 @@ Thumbs.db
 
 # Generated rule files
 config/nvim-mcp.mdc
+config/CLAUDE.md
+config/AGENTS.md

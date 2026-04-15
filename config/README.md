@@ -124,12 +124,21 @@ The command is `uvx`, the argument is `nvim-mcp`. From a local clone, use `uv ru
 ## 2. Add agent rules
 
 Registering the server gives the assistant the tools, but a rule file teaches
-it **when and how** to use them. Copy the one that matches your client into
-your project:
+it **when and how** to use them.
 
-- **[AGENTS.md](AGENTS.md)** — Rule file for Claude Code, Codex, and others.
-  Copy to your project root (or wherever your tool reads agent instructions).
-- **Cursor** — Run `./config/generate-mdc.sh` to create `nvim-mcp.mdc`, then
-  copy it to `.cursor/rules/` in your project.
+Run the config generator and pick your tool:
 
-These are starting points. Adjust them to match your workflow.
+```bash
+./config/generate-configs.sh
+```
+
+It will generate the appropriate rule file and tell you where to place it:
+
+| Tool   | Global path                          |
+|--------|--------------------------------------|
+| Cursor | `~/.cursor/rules/nvim-mcp.mdc`      |
+| Claude | `~/.claude/CLAUDE.md`                |
+| Codex  | `~/.codex/AGENTS.md`                 |
+
+The source template is **[AGENTS-EXAMPLE.md](AGENTS-EXAMPLE.md)** — adjust it
+to match your workflow.
