@@ -20,6 +20,11 @@ Never carry over cursor position or file identity from a previous turn.**
    `send_command(["wincmd p", "e <file>", "wincmd p"])`.
    If the terminal is the only window, use
    `send_command("vsplit <file>")` to avoid replacing it.
+3. **Keep the terminal window in place when splitting.** If a terminal
+   window exists, open new splits from a non-terminal window so the
+   terminal stays where it is. Switch to a file window first
+   (`wincmd p` or target it directly), run the split there, then
+   switch back if needed.
 
 ## Highlight colors
 
