@@ -16,6 +16,13 @@ It talks to Neovim directly over its default **Unix socket** using msgpack-RPC a
 </details>
 
 <details>
+<summary>Claude and Cursor collaborating in one Neovim instance</summary>
+
+<video src="https://github.com/user-attachments/assets/d92915ec-2108-4166-9911-4d09a5025865"></video>
+
+</details>
+
+<details>
 <summary>Using nvim-mcp in Cursor</summary>
 
 <video src="https://github.com/user-attachments/assets/388f5f39-ab4d-4747-9eca-e09c666439ee"></video>
