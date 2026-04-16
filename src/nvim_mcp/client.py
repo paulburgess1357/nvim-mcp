@@ -9,6 +9,8 @@ import msgpack
 
 from nvim_mcp.types import CONNECT_TIMEOUT, NvimError, _format_rpc_error
 
+_MAX_NON_RESPONSE_MESSAGES = 1000
+
 
 class NvimClient:
     """Speaks the msgpack-RPC wire protocol (request/response only) directly
@@ -20,6 +22,12 @@ class NvimClient:
         self._sock = sock
         self._unpacker = msgpack.Unpacker(raw=False, strict_map_key=False)
         self._next_msgid = 0
+
+    def __enter__(self) -> NvimClient:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
 
     @classmethod
     def connect(cls, path: str, timeout: float = CONNECT_TIMEOUT) -> NvimClient:
@@ -41,6 +49,7 @@ class NvimClient:
         return self._read_response(msgid)
 
     def _read_response(self, expected_msgid: int) -> Any:
+        skipped = 0
         while True:
             data = self._sock.recv(65536)
             if not data:
@@ -48,9 +57,15 @@ class NvimClient:
             self._unpacker.feed(data)
             for msg in self._unpacker:
                 if not isinstance(msg, (list, tuple)) or len(msg) < 4:
+                    skipped += 1
+                    if skipped >= _MAX_NON_RESPONSE_MESSAGES:
+                        raise NvimError("Too many non-response messages")
                     continue
                 msg_type, rmsgid, error, result = msg[0], msg[1], msg[2], msg[3]
                 if msg_type != 1 or rmsgid != expected_msgid:
+                    skipped += 1
+                    if skipped >= _MAX_NON_RESPONSE_MESSAGES:
+                        raise NvimError("Too many non-response messages")
                     continue
                 if error is not None:
                     raise NvimError(_format_rpc_error(error))

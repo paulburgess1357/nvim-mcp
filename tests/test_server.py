@@ -219,6 +219,38 @@ class TestClearHighlightsTool:
         assert result == {"cleared": True}
 
 
+class TestHighlightRangesValidation:
+    def test_missing_file_key(self, mock_manager):
+        with pytest.raises(ValueError, match="missing required.*file"):
+            asyncio.run(highlight_ranges([{"start_line": 1, "end_line": 2}]))
+
+    def test_missing_start_line_key(self, mock_manager):
+        with pytest.raises(ValueError, match="missing required.*start_line"):
+            asyncio.run(highlight_ranges([{"file": "a.py", "end_line": 2}]))
+
+    def test_missing_end_line_key(self, mock_manager):
+        with pytest.raises(ValueError, match="missing required.*end_line"):
+            asyncio.run(highlight_ranges([{"file": "a.py", "start_line": 1}]))
+
+    def test_missing_multiple_keys(self, mock_manager):
+        with pytest.raises(ValueError, match="missing required"):
+            asyncio.run(highlight_ranges([{}]))
+
+    def test_error_includes_index(self, mock_manager):
+        with pytest.raises(ValueError, match=r"highlights\[1\]"):
+            asyncio.run(highlight_ranges([
+                {"file": "a.py", "start_line": 1, "end_line": 2},
+                {"file": "b.py"},
+            ]))
+        assert mock_manager.highlight_buffer.await_count == 1
+
+    def test_valid_input_passes_through(self, mock_manager):
+        result = asyncio.run(highlight_ranges([
+            {"file": "a.py", "start_line": 1, "end_line": 3},
+        ]))
+        assert len(result) == 1
+
+
 class TestMainEntryPoint:
     def test_main_calls_mcp_run(self):
         with patch("nvim_mcp.server.mcp") as mock_mcp:

@@ -85,9 +85,9 @@ class TestEnvInt:
         with patch.dict(os.environ, {"NVIM_MCP_TEST_VAR": "0"}):
             assert _env_int("NVIM_MCP_TEST_VAR", 42) == 0
 
-    def test_returns_negative(self):
+    def test_clamps_negative_to_zero(self):
         with patch.dict(os.environ, {"NVIM_MCP_TEST_VAR": "-5"}):
-            assert _env_int("NVIM_MCP_TEST_VAR", 42) == -5
+            assert _env_int("NVIM_MCP_TEST_VAR", 42) == 0
 
     def test_returns_default_on_empty_string(self):
         with patch.dict(os.environ, {"NVIM_MCP_TEST_VAR": ""}):
@@ -704,23 +704,22 @@ class TestSendCommand:
     def test_auto_connect_fails_no_instances(self):
         mgr = NeovimManager()
         with patch("nvim_mcp.manager.find_all_sockets", return_value=[]):
-            result = asyncio.run(mgr.send_command("w"))
-        assert "error" in result
-        assert "No Neovim instances" in result["error"]
+            with pytest.raises(RuntimeError, match="No Neovim instances"):
+                asyncio.run(mgr.send_command("w"))
 
     def test_auto_connect_fails_multiple_instances(self):
         mgr = NeovimManager()
         instances = [_make_instance(0), _make_instance(1)]
         p1, p2 = _patch_discovery(instances)
         with p1, p2:
-            result = asyncio.run(mgr.send_command("w"))
-        assert "instances" in result
+            with pytest.raises(RuntimeError, match="Multiple Neovim"):
+                asyncio.run(mgr.send_command("w"))
 
-    def test_command_list_returns_error_on_auto_connect_fail(self):
+    def test_command_list_raises_on_auto_connect_fail(self):
         mgr = NeovimManager()
         with patch("nvim_mcp.manager.find_all_sockets", return_value=[]):
-            result = asyncio.run(mgr.send_command(["cmd1", "cmd2"]))
-        assert "error" in result
+            with pytest.raises(RuntimeError, match="No Neovim instances"):
+                asyncio.run(mgr.send_command(["cmd1", "cmd2"]))
 
     def test_empty_command_list(self):
         mgr, mock_nvim = _connected_manager()
@@ -750,11 +749,11 @@ class TestSendKeys:
         assert result == {"sent": "dd"}
         mock_nvim.input.assert_called_once_with("<Esc>dd")
 
-    def test_returns_error_when_no_instances(self):
+    def test_raises_when_no_instances(self):
         mgr = NeovimManager()
         with patch("nvim_mcp.manager.find_all_sockets", return_value=[]):
-            result = asyncio.run(mgr.send_keys("gg"))
-        assert "error" in result
+            with pytest.raises(RuntimeError, match="No Neovim instances"):
+                asyncio.run(mgr.send_keys("gg"))
 
 
 # ===================================================================
@@ -1312,8 +1311,8 @@ class TestFindSocketForTerminal:
         assert result == inst.socket_path
 
     def test_handles_mixed_valid_invalid_children(self):
-        """ValueError from non-numeric line aborts the for loop for that pid."""
-        inst = _make_instance(0)
+        """Non-numeric lines are skipped; valid siblings are still processed."""
+        inst = NvimInstance(socket_path="/s", pid=200, cwd="/c", current_file="f")
 
         def fake_pgrep(cmd, **_kwargs):
             pid_arg = cmd[2]
@@ -1323,7 +1322,7 @@ class TestFindSocketForTerminal:
 
         with patch("nvim_mcp.discovery.subprocess.run", side_effect=fake_pgrep):
             result = find_socket_for_terminal(100, [inst])
-        assert result is None
+        assert result == "/s"
 
 
 # ===================================================================
@@ -1900,12 +1899,12 @@ class TestWithRetryRaiseOnError:
             with pytest.raises(RuntimeError, match="auto-connect"):
                 asyncio.run(mgr.edit_buffer("a.py", "text"))
 
-    def test_does_not_raise_on_auto_connect_fail_send_command(self):
-        """send_command uses raise_on_error=False, so returns error dict."""
+    def test_raises_on_auto_connect_fail_send_command(self):
+        """send_command uses raise_on_error=True, like all other tools."""
         mgr = NeovimManager()
         with patch("nvim_mcp.manager.find_all_sockets", return_value=[]):
-            result = asyncio.run(mgr.send_command("w"))
-        assert "error" in result
+            with pytest.raises(RuntimeError, match="No Neovim instances"):
+                asyncio.run(mgr.send_command("w"))
 
     def test_raises_on_auto_connect_oserror_read_buffer(self):
         mgr = NeovimManager()
@@ -2228,3 +2227,133 @@ class TestSyncHelpersExtended:
         mgr = NeovimManager()
         with pytest.raises(AssertionError):
             mgr._get_diagnostics_sync(None)
+
+
+# ===================================================================
+# NvimClient — context manager protocol
+# ===================================================================
+
+class TestNvimClientContextManager:
+    def test_enter_returns_self(self):
+        sock = MagicMock(spec=socket.socket)
+        client = NvimClient(sock)
+        assert client.__enter__() is client
+
+    def test_exit_closes_socket(self):
+        sock = MagicMock(spec=socket.socket)
+        with NvimClient(sock) as client:
+            assert client._sock is sock
+        sock.close.assert_called_once()
+
+    def test_exit_on_exception_still_closes(self):
+        sock = MagicMock(spec=socket.socket)
+        with pytest.raises(ValueError):
+            with NvimClient(sock):
+                raise ValueError("boom")
+        sock.close.assert_called_once()
+
+
+# ===================================================================
+# NvimClient — _read_response iteration limit
+# ===================================================================
+
+class TestReadResponseIterationLimit:
+    def test_raises_after_too_many_non_response_messages(self):
+        from nvim_mcp.client import _MAX_NON_RESPONSE_MESSAGES
+        notifications = b""
+        for _ in range(_MAX_NON_RESPONSE_MESSAGES + 1):
+            notifications += msgpack.packb([2, "redraw", []])
+        sock = MagicMock(spec=socket.socket)
+        sock.recv.return_value = notifications
+        client = NvimClient(sock)
+        client._next_msgid = 0
+        with pytest.raises(NvimError, match="Too many non-response messages"):
+            client._read_response(expected_msgid=1)
+
+
+# ===================================================================
+# NeovimManager — shutdown
+# ===================================================================
+
+class TestNeovimManagerShutdown:
+    def test_shutdown_closes_and_clears(self):
+        mgr, mock_nvim = _connected_manager()
+        asyncio.run(mgr.shutdown())
+        mock_nvim.close.assert_called_once()
+        assert mgr._nvim is None
+
+    def test_shutdown_when_not_connected(self):
+        mgr = NeovimManager()
+        asyncio.run(mgr.shutdown())
+        assert mgr._nvim is None
+
+    def test_shutdown_swallows_close_error(self):
+        mgr, mock_nvim = _connected_manager()
+        mock_nvim.close.side_effect = OSError("already dead")
+        asyncio.run(mgr.shutdown())
+        assert mgr._nvim is None
+
+
+# ===================================================================
+# NeovimManager — cache invalidation on auto-connect failure
+# ===================================================================
+
+class TestDiscoveryCacheInvalidation:
+    def test_cache_cleared_when_no_instances_found(self):
+        mgr = NeovimManager()
+        mgr._discovery_cache = (0.0, [])
+        mgr._discovery_cache_ttl = 9999.0
+        result = asyncio.run(mgr._auto_connect_unlocked())
+        assert "error" in result
+        assert mgr._discovery_cache is None
+
+    def test_cache_not_cleared_when_multiple_instances(self):
+        mgr = NeovimManager()
+        instances = [_make_instance(0), _make_instance(1)]
+        p1, p2 = _patch_discovery(instances)
+        with p1, p2:
+            result = asyncio.run(mgr._auto_connect_unlocked())
+        assert "instances" in result
+        assert mgr._discovery_cache is not None
+
+
+# ===================================================================
+# send_command / send_keys — raise_on_error=True consistency
+# ===================================================================
+
+class TestSendCommandRaisesOnError:
+    def test_raises_on_no_instances(self):
+        mgr = NeovimManager()
+        with patch("nvim_mcp.manager.find_all_sockets", return_value=[]):
+            with pytest.raises(RuntimeError, match="No Neovim instances"):
+                asyncio.run(mgr.send_command("w"))
+
+    def test_raises_on_multiple_instances(self):
+        mgr = NeovimManager()
+        instances = [_make_instance(0), _make_instance(1)]
+        p1, p2 = _patch_discovery(instances)
+        with p1, p2:
+            with pytest.raises(RuntimeError, match="Multiple Neovim"):
+                asyncio.run(mgr.send_command("w"))
+
+    def test_list_raises_on_no_instances(self):
+        mgr = NeovimManager()
+        with patch("nvim_mcp.manager.find_all_sockets", return_value=[]):
+            with pytest.raises(RuntimeError, match="No Neovim instances"):
+                asyncio.run(mgr.send_command(["cmd1", "cmd2"]))
+
+
+class TestSendKeysRaisesOnError:
+    def test_raises_on_no_instances(self):
+        mgr = NeovimManager()
+        with patch("nvim_mcp.manager.find_all_sockets", return_value=[]):
+            with pytest.raises(RuntimeError, match="No Neovim instances"):
+                asyncio.run(mgr.send_keys("gg"))
+
+    def test_raises_on_multiple_instances(self):
+        mgr = NeovimManager()
+        instances = [_make_instance(0), _make_instance(1)]
+        p1, p2 = _patch_discovery(instances)
+        with p1, p2:
+            with pytest.raises(RuntimeError, match="Multiple Neovim"):
+                asyncio.run(mgr.send_keys("dd"))

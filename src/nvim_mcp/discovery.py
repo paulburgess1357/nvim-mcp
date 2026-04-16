@@ -131,10 +131,13 @@ def find_socket_for_terminal(
             )
             if result.returncode == 0:
                 for line in result.stdout.strip().splitlines():
-                    child = int(line.strip())
+                    try:
+                        child = int(line.strip())
+                    except ValueError:
+                        continue
                     if child not in descendants:
                         to_visit.append(child)
-        except (subprocess.TimeoutExpired, ValueError, OSError):
+        except (subprocess.TimeoutExpired, OSError):
             pass
 
     for inst in instances:

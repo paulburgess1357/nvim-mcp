@@ -60,6 +60,16 @@ class NeovimManager:
         self._discovery_cache: tuple[float, list[NvimInstance]] | None = None
         self._discovery_cache_ttl = 30.0
 
+    async def shutdown(self) -> None:
+        """Close the current connection and clear state."""
+        async with self._lock:
+            if self._nvim is not None:
+                try:
+                    self._nvim.close()
+                except Exception:
+                    pass
+                self._nvim = None
+
     # -- Discovery -----------------------------------------------------------
 
     async def discover(self) -> list[NvimInstance]:
@@ -138,11 +148,17 @@ class NeovimManager:
 
     async def send_command(self, command: str | list[str]) -> dict | list[dict]:
         if isinstance(command, str):
-            return await self._with_retry(self._run_command_sync, command)
-        return await self._with_retry(self._run_commands_sync, command)
+            return await self._with_retry(
+                self._run_command_sync, command, raise_on_error=True
+            )
+        return await self._with_retry(
+            self._run_commands_sync, command, raise_on_error=True
+        )
 
     async def send_keys(self, keys: str) -> dict:
-        return await self._with_retry(self._run_keys_sync, keys)
+        return await self._with_retry(
+            self._run_keys_sync, keys, raise_on_error=True
+        )
 
     async def get_state(self) -> dict:
         return await self._with_retry(
@@ -288,6 +304,7 @@ class NeovimManager:
         """
         instances = await self.discover()
         if len(instances) == 0:
+            self._discovery_cache = None
             return {"error": "No Neovim instances found. Is Neovim running?"}
         if len(instances) > 1:
             return _format_instance_dict(instances)

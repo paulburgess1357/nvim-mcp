@@ -60,6 +60,7 @@ local function collect_visual_and_context(b, winfo, is_active, cur_mode, wline, 
         winfo.selection = {
             start_line = sl, start_col = sc,
             end_line = el, end_col = ec,
+            mode = cur_mode,
         }
         if ctx_n > 0 then
             winfo.context = get_context(b, sl, el, ctx_n)
@@ -279,8 +280,12 @@ local alt_win = vim.fn.win_getid(vim.fn.winnr('#'))
 local raw_mode = vim.fn.mode()
 local mode_names = {
     n = "normal", i = "insert", v = "visual", V = "visual_line",
-    ["\\22"] = "visual_block", R = "replace", c = "command", t = "terminal",
+    ["\\22"] = "visual_block", R = "replace", Rv = "vreplace",
+    c = "command", t = "terminal",
     s = "select", S = "select_line", ["\\19"] = "select_block",
+    no = "operator_pending", nov = "operator_pending",
+    noV = "operator_pending", ["no\\22"] = "operator_pending",
+    r = "prompt", rm = "prompt", ["r?"] = "prompt",
 }
 local cur_mode = mode_names[raw_mode] or raw_mode
 

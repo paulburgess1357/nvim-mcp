@@ -24,7 +24,7 @@ def _env_int(name: str, default: int) -> int:
     if val is None:
         return default
     try:
-        return int(val)
+        return max(0, int(val))
     except ValueError:
         return default
 

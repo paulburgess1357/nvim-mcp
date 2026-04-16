@@ -182,8 +182,14 @@ async def highlight_ranges(
     Example: [{"file": "foo.py", "start_line": 1, "end_line": 3, "color": "#5f3a3a"},
               {"file": "foo.py", "start_line": 10, "end_line": 12}]
     """
+    required_keys = ("file", "start_line", "end_line")
     results = []
-    for h in highlights:
+    for idx, h in enumerate(highlights):
+        missing = [k for k in required_keys if k not in h]
+        if missing:
+            raise ValueError(
+                f"highlights[{idx}] missing required key(s): {', '.join(missing)}"
+            )
         results.append(await manager.highlight_buffer(
             file=h["file"],
             start_line=h["start_line"],
