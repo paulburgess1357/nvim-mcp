@@ -39,6 +39,7 @@ Homepage = "https://github.com/paulburgess1357/nvim-mcp"
 [dependency-groups]
 dev = [
     "pytest",
+    "pytest-asyncio>=1.3.0",
 ]
 
 [tool.hatch.build.targets.wheel]
