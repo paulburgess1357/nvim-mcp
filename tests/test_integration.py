@@ -13,7 +13,7 @@ import time
 import pytest
 
 from nvim_mcp.client import NvimClient
-from nvim_mcp.lua import EDIT_BUF, HIGHLIGHT, READ_BUF
+from nvim_mcp.lua import EDIT_BUF, EXEC_COMMAND, GET_DIAGNOSTICS, GET_STATE, HIGHLIGHT, READ_BUF
 from nvim_mcp.types import NvimError
 
 pytestmark = pytest.mark.skipif(
@@ -446,6 +446,93 @@ class TestHighlight:
         buf = client.exec_lua(READ_BUF, p, None, None)
         lines = [l.split(": ", 1)[1] for l in buf["lines"]]
         assert lines == ["hello", "world"]
+
+
+class TestGetState:
+    """Verify the composed GET_STATE Lua script runs against a real Neovim."""
+
+    @pytest.fixture()
+    def client(self, nvim_socket):
+        c = NvimClient.connect(nvim_socket)
+        yield c
+        c.close()
+
+    def test_returns_expected_structure(self, client):
+        state = client.exec_lua(GET_STATE, 20, 5)
+        assert isinstance(state, dict)
+        assert isinstance(state["mode"], str)
+        assert isinstance(state["cwd"], str)
+        assert isinstance(state["windows"], list)
+        assert isinstance(state["buffers"], list)
+        assert isinstance(state["current_tab"], int)
+        assert isinstance(state["tab_count"], int)
+        assert "modified_buffers" in state
+
+    def test_active_window_has_expected_fields(self, client):
+        state = client.exec_lua(GET_STATE, 20, 5)
+        wins = state["windows"]
+        assert len(wins) >= 1
+        active = wins[0]
+        assert active["role"] == "active"
+        assert isinstance(active["line"], int)
+        assert isinstance(active["col"], int)
+        assert isinstance(active["total_lines"], int)
+        assert isinstance(active["filetype"], str)
+        assert isinstance(active["modified"], bool)
+        assert "indent" in active
+        assert "context" in active
+
+    def test_mode_is_normal_in_headless(self, client):
+        state = client.exec_lua(GET_STATE, 20, 5)
+        assert state["mode"] == "normal"
+
+    def test_zero_context_lines_omits_context(self, client):
+        state = client.exec_lua(GET_STATE, 0, 0)
+        active = state["windows"][0]
+        assert "context" not in active
+
+
+class TestGetDiagnostics:
+    """Verify the composed GET_DIAGNOSTICS Lua script runs against a real Neovim."""
+
+    @pytest.fixture()
+    def client(self, nvim_socket):
+        c = NvimClient.connect(nvim_socket)
+        yield c
+        c.close()
+
+    def test_returns_list_with_no_diagnostics(self, client):
+        result = client.exec_lua(GET_DIAGNOSTICS, None)
+        assert isinstance(result, list)
+
+    def test_unknown_file_returns_error(self, client):
+        result = client.exec_lua(GET_DIAGNOSTICS, "/tmp/nvim_test_no_such_file_ever.py")
+        assert isinstance(result, dict)
+        assert "error" in result
+        assert "not found" in result["error"].lower()
+
+
+class TestExecCommand:
+    """Verify the EXEC_COMMAND Lua script runs against a real Neovim."""
+
+    @pytest.fixture()
+    def client(self, nvim_socket):
+        c = NvimClient.connect(nvim_socket)
+        yield c
+        c.close()
+
+    def test_echo_returns_output(self, client):
+        result = client.exec_lua(EXEC_COMMAND, "echo 'hello'")
+        assert result["output"] == "hello"
+        assert result["errmsg"] == ""
+
+    def test_invalid_command_returns_error(self, client):
+        result = client.exec_lua(EXEC_COMMAND, "nonexistent_command_xyz")
+        assert result["errmsg"] != ""
+
+    def test_silent_command_returns_empty_output(self, client):
+        result = client.exec_lua(EXEC_COMMAND, "let g:_mcp_test = 1")
+        assert result["errmsg"] == ""
 
 
 class TestNvimClientEdgeCases:
