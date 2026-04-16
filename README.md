@@ -2,9 +2,9 @@
 
 [![PyPI](https://img.shields.io/pypi/v/nvim-mcp)](https://pypi.org/project/nvim-mcp/)
 
-**nvim-mcp** is an [MCP](https://modelcontextprotocol.io/) server that gives AI assistants (Cursor, Claude, and others) full access to a running **Neovim** session. The assistant sees what you see — cursor position, visible code, window layout, visual selections — and can send keystrokes, run commands, or read buffer contents.
+An [MCP](https://modelcontextprotocol.io/) server that gives any AI agent first-class access to your running Neovim session. Agents can see your editor state, read and edit buffers, run commands, send keystrokes, query diagnostics, and annotate code with highlights — all through Neovim's native msgpack-RPC socket.
 
-It talks to Neovim directly over its default **Unix socket** using msgpack-RPC and discovers running instances automatically.
+Works with Cursor, Claude Code, Codex, and any MCP-compatible client.
 
 ## Demos
 
@@ -36,10 +36,29 @@ It talks to Neovim directly over its default **Unix socket** using msgpack-RPC a
 
 </details>
 
+## Tools
+
+Agents can run any Vim command and send any keystrokes, so anything you can do in Neovim, the agent can too. Dedicated tools handle the most common operations without requiring the agent to construct raw commands:
+
+| Tool | Purpose |
+| --- | --- |
+| `get_state` | Session snapshot — mode, cwd, buffers, windows, cursor context, folds, selections, marks, diagnostics |
+| `send_command` | Run ex commands (`:w`, `:e path`, `:wincmd v`, etc.) |
+| `send_keys` | Send keystrokes (Esc is prepended automatically) |
+| `read_full_buf` / `read_buf_range` | Read buffer contents with line numbers |
+| `find_and_replace_buf` | Exact-match find and replace in a buffer |
+| `write_full_buf` | Replace entire buffer contents |
+| `get_all_diagnostics` / `get_buf_diagnostics` | LSP diagnostics (errors, warnings, hints) |
+| `highlight_range` / `highlight_ranges` | Annotate lines with colored extmarks |
+| `clear_highlights` | Remove MCP highlights from a buffer |
+| `connect` | Discover and connect to running Neovim instances |
+
+Buffer edits are in-memory — nothing is written to disk until saved. Running instances are auto-discovered; when multiple exist, the agent picks by index, socket path, or terminal PID.
+
 ## Setup
 
 1. **Install [uv](https://docs.astral.sh/uv/)** if you don't have it: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-2. **Register the MCP server** with your client — example for Cursor (`.cursor/mcp.json`):
+2. **Register the MCP server** — example for Cursor (`.cursor/mcp.json`):
 
 ```json
 {
@@ -54,57 +73,12 @@ It talks to Neovim directly over its default **Unix socket** using msgpack-RPC a
 
    See [`config/README.md`](config/README.md) for other clients (Claude CLI, Codex, etc.) or to run from a local clone.
 
-3. **Add agent rules** — registering the server gives the assistant the tools, but a rule file teaches it *when and how* to use them. Run `./config/generate-configs.sh` and pick your tool (Cursor, Claude Code, or Codex).
+3. **Add agent rules** — registering the server gives the agent the tools, but a rule file teaches it *when and how* to use them. Run `./config/generate-configs.sh` and pick your client.
 4. **Start Neovim** — it listens on an RPC socket by default.
 
-## Tools
+## Verify it works
 
-| Tool                          | Purpose                                                                                              |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **`get_state`**               | Snapshot of the session: mode, cwd, buffers, and per-window file, cursor, context, folds, diagnostics. |
-| **`get_all_diagnostics`**     | LSP diagnostics from all buffers.                                                                    |
-| **`get_buf_diagnostics`**     | LSP diagnostics for a single buffer.                                                                 |
-| **`find_and_replace_buf`**    | Find and replace text in a buffer. `old_string` must match exactly once.                             |
-| **`write_full_buf`**          | Set the entire content of a buffer.                                                                  |
-| **`read_full_buf`**           | Read an entire buffer.                                                                               |
-| **`read_buf_range`**          | Read a line range from a buffer. Takes `start_line` and `end_line` (1-indexed).                      |
-| **`send_command`**            | Run ex commands (no leading `:`). Single string or list.                                             |
-| **`send_keys`**               | Send keystrokes. Esc is prepended automatically.                                                     |
-| **`highlight_range`**         | Highlight lines with colored extmarks. Takes `file`, `start_line`, `end_line`, `color`.              |
-| **`highlight_ranges`**        | Highlight multiple ranges at once with different colors.                                             |
-| **`clear_highlights`**        | Remove all MCP highlights from a buffer.                                                             |
-| **`connect`**                 | Connect to a Neovim instance.                                                                        |
-
-## Multi-instance
-
-One Neovim instance running? Tools auto-connect. Multiple? `connect` lists them — pick by `index`, `socket_path`, or `terminal_pid`. Set `NVIM_SOCKET_PATH` to skip discovery entirely.
-
-## Environment
-
-| Variable                          | Default           | Description                                                                    |
-| --------------------------------- | ----------------- | ------------------------------------------------------------------------------ |
-| `NVIM_SOCKET_PATH`                | _(auto-discover)_ | Skip discovery; connect directly to this socket.                               |
-| `NVIM_MCP_ACTIVE_CONTEXT_LINES`   | `20`              | Lines above/below cursor in the active window. Set to `0` to disable.          |
-| `NVIM_MCP_INACTIVE_CONTEXT_LINES` | `20`              | Lines above/below cursor in inactive windows. Set to `0` to disable.           |
-
-## Clearing highlights
-
-`clear_highlights` clears a buffer via the MCP tool, but you can also clear them directly in Neovim. Add this to your config:
-
-```lua
-vim.api.nvim_create_user_command('McpClearHighlights', function()
-  local ns = vim.api.nvim_create_namespace('mcp_highlight')
-  for _, b in ipairs(vim.api.nvim_list_bufs()) do
-    vim.api.nvim_buf_clear_namespace(b, ns, 0, -1)
-  end
-end, {})
-```
-
-Then `:McpClearHighlights` removes all MCP highlights from every buffer.
-
-## Setup Test
-
-Open a file in Neovim, then paste this into your AI assistant:
+Open a file in Neovim and paste this into your AI agent:
 
 ```
 For each step: explain what you're about to do, then do it, then tell me
@@ -118,8 +92,8 @@ what happened. Wait for me to say "next" before moving on.
 
 ## Requirements
 
-- Python ≥ 3.10
 - Linux
+- Python ≥ 3.10
 - Neovim ≥ 0.11
 
 ## License

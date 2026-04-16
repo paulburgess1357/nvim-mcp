@@ -148,3 +148,26 @@ It will generate the appropriate rule file and tell you where to place it:
 
 The source template is **[AGENTS-EXAMPLE.md](AGENTS-EXAMPLE.md)** — adjust it
 to match your workflow.
+
+## 3. Optional Environment variables
+
+| Variable                          | Default           | Description                                        |
+| --------------------------------- | ----------------- | -------------------------------------------------- |
+| `NVIM_SOCKET_PATH`                | _(auto-discover)_ | Skip discovery; connect directly to this socket.   |
+| `NVIM_MCP_ACTIVE_CONTEXT_LINES`   | `20`              | Lines of context around the cursor in the active window.  |
+| `NVIM_MCP_INACTIVE_CONTEXT_LINES` | `20`              | Lines of context around the cursor in inactive windows.   |
+
+## 4. Clearing highlights manually
+
+`clear_highlights` clears via the MCP tool, but you can also clear them directly in Neovim. Add this to your config:
+
+```lua
+vim.api.nvim_create_user_command('McpClearHighlights', function()
+  local ns = vim.api.nvim_create_namespace('mcp_highlight')
+  for _, b in ipairs(vim.api.nvim_list_bufs()) do
+    vim.api.nvim_buf_clear_namespace(b, ns, 0, -1)
+  end
+end, {})
+```
+
+Then `:McpClearHighlights` removes all MCP highlights from every buffer.
