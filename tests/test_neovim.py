@@ -185,6 +185,41 @@ class TestNvimClientConnect:
                 NvimClient.connect("/tmp/test.sock")
         mock_sock.close.assert_called_once()
 
+    def test_connect_tcp_creates_inet_socket(self):
+        mock_sock = MagicMock(spec=socket.socket)
+        with patch("nvim_mcp.client.socket.socket", return_value=mock_sock) as mock_ctor:
+            client = NvimClient.connect("127.0.0.1:6666", timeout=2.0)
+
+        mock_ctor.assert_called_once_with(socket.AF_INET, socket.SOCK_STREAM)
+        mock_sock.settimeout.assert_called_once_with(2.0)
+        mock_sock.connect.assert_called_once_with(("127.0.0.1", 6666))
+        assert client._sock is mock_sock
+
+    def test_connect_tcp_with_hostname(self):
+        mock_sock = MagicMock(spec=socket.socket)
+        with patch("nvim_mcp.client.socket.socket", return_value=mock_sock) as mock_ctor:
+            NvimClient.connect("localhost:1234")
+
+        mock_ctor.assert_called_once_with(socket.AF_INET, socket.SOCK_STREAM)
+        mock_sock.connect.assert_called_once_with(("localhost", 1234))
+
+    def test_connect_tcp_closes_socket_on_failure(self):
+        mock_sock = MagicMock(spec=socket.socket)
+        mock_sock.connect.side_effect = ConnectionRefusedError("refused")
+        with patch("nvim_mcp.client.socket.socket", return_value=mock_sock):
+            with pytest.raises(ConnectionRefusedError):
+                NvimClient.connect("127.0.0.1:9999")
+        mock_sock.close.assert_called_once()
+
+    def test_connect_unix_path_with_colon_stays_unix(self):
+        """A path starting with / is always Unix, even if it contains a colon."""
+        mock_sock = MagicMock(spec=socket.socket)
+        with patch("nvim_mcp.client.socket.socket", return_value=mock_sock) as mock_ctor:
+            NvimClient.connect("/tmp/nvim:socket")
+
+        mock_ctor.assert_called_once_with(socket.AF_UNIX, socket.SOCK_STREAM)
+        mock_sock.connect.assert_called_once_with("/tmp/nvim:socket")
+
 
 class TestNvimClientRequest:
     def _make_client_with_response(self, msgid: int, error, result):
@@ -1368,6 +1403,17 @@ class TestAllSockets:
                 mock_stat.return_value.st_mode = stat.S_IFSOCK | 0o755
                 result = find_all_sockets()
         assert result == ["/tmp/my_nvim.sock"]
+
+    def test_nvim_socket_path_tcp_address(self):
+        """TCP address in NVIM_SOCKET_PATH is returned without filesystem stat."""
+        with patch.dict(os.environ, {"NVIM_SOCKET_PATH": "127.0.0.1:6666"}):
+            result = find_all_sockets()
+        assert result == ["127.0.0.1:6666"]
+
+    def test_nvim_socket_path_tcp_hostname(self):
+        with patch.dict(os.environ, {"NVIM_SOCKET_PATH": "localhost:1234"}):
+            result = find_all_sockets()
+        assert result == ["localhost:1234"]
 
     def test_nvim_socket_path_override_not_socket(self):
         with patch.dict(os.environ, {"NVIM_SOCKET_PATH": "/tmp/not_a_socket"}, clear=False):

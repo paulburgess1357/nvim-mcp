@@ -74,7 +74,7 @@ Buffer edits are in-memory — nothing is written to disk until saved. Running i
    See [`config/README.md`](config/README.md) for other clients (Claude CLI, Codex, etc.) or to run from a local clone.
 
 3. **Add agent rules** — registering the server gives the agent the tools, but a rule file teaches it *when and how* to use them. Run `./config/generate-configs.sh` and pick your client.
-4. **Start Neovim** — it listens on an RPC socket by default.
+4. **Start Neovim** — on most Linux systems it listens on a Unix socket automatically. Auto-discovery looks for sockets whose name starts with `nvim` in standard runtime directories. If your socket has a custom name or lives elsewhere, set `NVIM_SOCKET_PATH` to its path (or a `host:port` TCP address).
 
 ## Verify it works
 

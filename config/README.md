@@ -153,7 +153,7 @@ to match your workflow.
 
 | Variable                          | Default           | Description                                        |
 | --------------------------------- | ----------------- | -------------------------------------------------- |
-| `NVIM_SOCKET_PATH`                | _(auto-discover)_ | Skip discovery; connect directly to this socket.   |
+| `NVIM_SOCKET_PATH`                | _(auto-discover)_ | Skip discovery; connect directly to this socket path or TCP address (`host:port`). Required when the socket name doesn't start with `nvim` (e.g. `--listen /tmp/my.sock`) or when using TCP (e.g. `--listen 127.0.0.1:6666`). |
 | `NVIM_MCP_ACTIVE_CONTEXT_LINES`   | `20`              | Lines of context around the cursor in the active window.  |
 | `NVIM_MCP_INACTIVE_CONTEXT_LINES` | `20`              | Lines of context around the cursor in inactive windows.   |
 

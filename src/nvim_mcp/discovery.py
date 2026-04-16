@@ -6,7 +6,7 @@ import os
 import stat
 import subprocess
 
-from nvim_mcp.client import NvimClient
+from nvim_mcp.client import NvimClient, _parse_tcp_address
 from nvim_mcp.types import NvimInstance
 
 
@@ -16,9 +16,12 @@ def find_all_sockets() -> list[str]:
     Checks ``NVIM_SOCKET_PATH`` env var first (direct override), then scans
     ``XDG_RUNTIME_DIR``, ``/run/user/<uid>``, ``TMPDIR``, and ``/tmp``.
     Deduplicates by realpath and limits directory depth to 4.
+    TCP addresses (``host:port``) are returned as-is without filesystem checks.
     """
     override = os.environ.get("NVIM_SOCKET_PATH")
     if override:
+        if _parse_tcp_address(override) is not None:
+            return [override]
         try:
             real = os.path.realpath(override)
             st = os.stat(real)

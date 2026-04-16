@@ -1,7 +1,8 @@
-"""Synchronous msgpack-RPC client for Neovim's Unix socket API."""
+"""Synchronous msgpack-RPC client for Neovim's socket API (Unix and TCP)."""
 
 from __future__ import annotations
 
+import re
 import socket
 from typing import Any
 
@@ -11,10 +12,20 @@ from nvim_mcp.types import CONNECT_TIMEOUT, NvimError, _format_rpc_error
 
 _MAX_NON_RESPONSE_MESSAGES = 1000
 
+_TCP_RE = re.compile(r"^(?!/)(.+):(\d+)$")
+
+
+def _parse_tcp_address(address: str) -> tuple[str, int] | None:
+    """Return ``(host, port)`` if *address* looks like a TCP endpoint, else ``None``."""
+    m = _TCP_RE.match(address)
+    if m is None:
+        return None
+    return m.group(1), int(m.group(2))
+
 
 class NvimClient:
     """Speaks the msgpack-RPC wire protocol (request/response only) directly
-    over Neovim's Unix socket.  No plugin-host machinery, no event loop —
+    over Neovim's socket.  No plugin-host machinery, no event loop —
     just the three RPC methods this project needs.
     """
 
@@ -30,15 +41,26 @@ class NvimClient:
         self.close()
 
     @classmethod
-    def connect(cls, path: str, timeout: float = CONNECT_TIMEOUT) -> NvimClient:
-        """Open a Unix-socket connection to Neovim at *path*."""
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.settimeout(timeout)
-        try:
-            sock.connect(path)
-        except Exception:
-            sock.close()
-            raise
+    def connect(cls, address: str, timeout: float = CONNECT_TIMEOUT) -> NvimClient:
+        """Open a connection to Neovim at *address* (Unix socket path or ``host:port``)."""
+        tcp = _parse_tcp_address(address)
+        if tcp is not None:
+            host, port = tcp
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            try:
+                sock.connect((host, port))
+            except Exception:
+                sock.close()
+                raise
+        else:
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            try:
+                sock.connect(address)
+            except Exception:
+                sock.close()
+                raise
         return cls(sock)
 
     def request(self, method: str, *args: Any) -> Any:
