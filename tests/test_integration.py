@@ -12,7 +12,9 @@ import time
 
 import pytest
 
-from nvim_mcp.neovim import NvimClient, NvimError, _EDIT_BUF_LUA, _READ_BUF_LUA, _HIGHLIGHT_LUA
+from nvim_mcp.client import NvimClient
+from nvim_mcp.lua import EDIT_BUF, HIGHLIGHT, READ_BUF
+from nvim_mcp.types import NvimError
 
 pytestmark = pytest.mark.skipif(
     not shutil.which("nvim"), reason="nvim not installed"
@@ -190,14 +192,14 @@ class TestBufEdit:
 
     def _read_buffer(self, client, path):
         """Read full buffer content as a string."""
-        result = client.exec_lua(_READ_BUF_LUA, path, None, None)
+        result = client.exec_lua(READ_BUF, path, None, None)
         lines = result["lines"]
         return "\n".join(line.split(": ", 1)[1] for line in lines)
 
     def test_basic_replace(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "hello world")
-        result = client.exec_lua(_EDIT_BUF_LUA, p, "hello", "goodbye")
+        result = client.exec_lua(EDIT_BUF, p, "hello", "goodbye")
         assert "error" not in result
         assert self._read_buffer(client, p) == "goodbye world"
 
@@ -206,7 +208,7 @@ class TestBufEdit:
         content = '#include "stdio.h"\n#include "stdlib.h"'
         self._setup_buffer(client, p, content)
         result = client.exec_lua(
-            _EDIT_BUF_LUA, p,
+            EDIT_BUF, p,
             '#include "stdio.h"',
             '#include "stdio.h"\n#include "math.h"',
         )
@@ -216,7 +218,7 @@ class TestBufEdit:
     def test_single_quotes(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "msg = 'hello'")
-        result = client.exec_lua(_EDIT_BUF_LUA, p, "'hello'", "'goodbye'")
+        result = client.exec_lua(EDIT_BUF, p, "'hello'", "'goodbye'")
         assert "error" not in result
         assert self._read_buffer(client, p) == "msg = 'goodbye'"
 
@@ -224,7 +226,7 @@ class TestBufEdit:
         p = self._unique_path()
         self._setup_buffer(client, p, "path = C:\\Users\\test")
         result = client.exec_lua(
-            _EDIT_BUF_LUA, p, "C:\\Users\\test", "C:\\Users\\new",
+            EDIT_BUF, p, "C:\\Users\\test", "C:\\Users\\new",
         )
         assert "error" not in result
         assert "C:\\Users\\new" in self._read_buffer(client, p)
@@ -232,14 +234,14 @@ class TestBufEdit:
     def test_tab_characters(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "no\ttabs\there")
-        result = client.exec_lua(_EDIT_BUF_LUA, p, "\ttabs\t", "\tspaces\t")
+        result = client.exec_lua(EDIT_BUF, p, "\ttabs\t", "\tspaces\t")
         assert "error" not in result
         assert "no\tspaces\there" == self._read_buffer(client, p)
 
     def test_unicode(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "hello 世界 🌍")
-        result = client.exec_lua(_EDIT_BUF_LUA, p, "世界 🌍", "world 🌎")
+        result = client.exec_lua(EDIT_BUF, p, "世界 🌍", "world 🌎")
         assert "error" not in result
         assert self._read_buffer(client, p) == "hello world 🌎"
 
@@ -248,7 +250,7 @@ class TestBufEdit:
         content = "line 1\nline 2\nline 3\nline 4"
         self._setup_buffer(client, p, content)
         result = client.exec_lua(
-            _EDIT_BUF_LUA, p,
+            EDIT_BUF, p,
             "line 2\nline 3", "replaced 2\nreplaced 3\nextra line",
         )
         assert "error" not in result
@@ -262,7 +264,7 @@ class TestBufEdit:
     def test_delete_text(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "keep this remove this keep too")
-        result = client.exec_lua(_EDIT_BUF_LUA, p, " remove this", "")
+        result = client.exec_lua(EDIT_BUF, p, " remove this", "")
         assert "error" not in result
         assert self._read_buffer(client, p) == "keep this keep too"
 
@@ -271,7 +273,7 @@ class TestBufEdit:
         content = "match: 100% (done) [ok]"
         self._setup_buffer(client, p, content)
         result = client.exec_lua(
-            _EDIT_BUF_LUA, p,
+            EDIT_BUF, p,
             "100% (done) [ok]", "50% (pending) [wait]",
         )
         assert "error" not in result
@@ -282,7 +284,7 @@ class TestBufEdit:
         content = "void foo() {\n    return;\n}"
         self._setup_buffer(client, p, content)
         result = client.exec_lua(
-            _EDIT_BUF_LUA, p,
+            EDIT_BUF, p,
             "{\n    return;\n}", "{\n    int x = 0;\n    return;\n}",
         )
         assert "error" not in result
@@ -291,7 +293,7 @@ class TestBufEdit:
     def test_write_mode_full_content(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "old content")
-        result = client.exec_lua(_EDIT_BUF_LUA, p, None, "brand new\ncontent")
+        result = client.exec_lua(EDIT_BUF, p, None, "brand new\ncontent")
         assert "error" not in result
         assert result["total_lines"] == 2
         assert self._read_buffer(client, p) == "brand new\ncontent"
@@ -299,13 +301,13 @@ class TestBufEdit:
     def test_write_mode_empty_old_string(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "old content")
-        result = client.exec_lua(_EDIT_BUF_LUA, p, "", "replaced all")
+        result = client.exec_lua(EDIT_BUF, p, "", "replaced all")
         assert "error" not in result
         assert self._read_buffer(client, p) == "replaced all"
 
     def test_create_new_buffer(self, client):
         p = self._unique_path()
-        result = client.exec_lua(_EDIT_BUF_LUA, p, None, "fresh content")
+        result = client.exec_lua(EDIT_BUF, p, None, "fresh content")
         assert "error" not in result
         assert result["total_lines"] == 1
         assert self._read_buffer(client, p) == "fresh content"
@@ -313,14 +315,14 @@ class TestBufEdit:
     def test_not_found_error(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "some content")
-        result = client.exec_lua(_EDIT_BUF_LUA, p, "nonexistent text", "replacement")
+        result = client.exec_lua(EDIT_BUF, p, "nonexistent text", "replacement")
         assert "error" in result
         assert "not found" in result["error"]
 
     def test_multiple_matches_error(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "aaa bbb aaa")
-        result = client.exec_lua(_EDIT_BUF_LUA, p, "aaa", "ccc")
+        result = client.exec_lua(EDIT_BUF, p, "aaa", "ccc")
         assert "error" in result
         assert "multiple" in result["error"]
 
@@ -329,7 +331,7 @@ class TestBufEdit:
         content = "line 1\nline 2\nline 3"
         self._setup_buffer(client, p, content)
         result = client.exec_lua(
-            _EDIT_BUF_LUA, p, "line 3", "line 3\nline 4\nline 5",
+            EDIT_BUF, p, "line 3", "line 3\nline 4\nline 5",
         )
         assert "error" not in result
         buf = self._read_buffer(client, p)
@@ -340,7 +342,7 @@ class TestBufEdit:
         content = "first line\nsecond line"
         self._setup_buffer(client, p, content)
         result = client.exec_lua(
-            _EDIT_BUF_LUA, p, "first line", "zeroth line\nfirst line",
+            EDIT_BUF, p, "first line", "zeroth line\nfirst line",
         )
         assert "error" not in result
         buf = self._read_buffer(client, p)
@@ -357,7 +359,7 @@ class TestBufEdit:
         )
         self._setup_buffer(client, p, content)
         result = client.exec_lua(
-            _EDIT_BUF_LUA, p,
+            EDIT_BUF, p,
             '    Logger::getInstance().info("Shape added to renderer");',
             '    Logger::getInstance().info("Shape added to renderer");\n'
             '    Logger::getInstance().debug("Count: " + std::to_string(count));',
@@ -395,34 +397,34 @@ class TestHighlight:
     def test_highlight_range(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "line1\nline2\nline3")
-        result = client.exec_lua(_HIGHLIGHT_LUA, p, 1, 2, "Yellow", None)
+        result = client.exec_lua(HIGHLIGHT, p, 1, 2, "Yellow", None)
         assert "error" not in result
         assert result["highlighted"] == 2
 
     def test_highlight_single_line(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "a\nb\nc")
-        result = client.exec_lua(_HIGHLIGHT_LUA, p, 2, 2, "DarkGreen", None)
+        result = client.exec_lua(HIGHLIGHT, p, 2, 2, "DarkGreen", None)
         assert "error" not in result
         assert result["highlighted"] == 1
 
     def test_highlight_hex_color(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "a\nb\nc\nd\ne")
-        result = client.exec_lua(_HIGHLIGHT_LUA, p, 3, 4, "#ff6666", None)
+        result = client.exec_lua(HIGHLIGHT, p, 3, 4, "#ff6666", None)
         assert "error" not in result
         assert result["highlighted"] == 2
 
     def test_clear_highlights(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "a\nb\nc")
-        client.exec_lua(_HIGHLIGHT_LUA, p, 1, 3, "Yellow", None)
-        result = client.exec_lua(_HIGHLIGHT_LUA, p, None, None, None, True)
+        client.exec_lua(HIGHLIGHT, p, 1, 3, "Yellow", None)
+        result = client.exec_lua(HIGHLIGHT, p, None, None, None, True)
         assert result.get("cleared") is True
 
     def test_invalid_buffer_returns_error(self, client):
         result = client.exec_lua(
-            _HIGHLIGHT_LUA,
+            HIGHLIGHT,
             "/tmp/nvim_test_no_such_buffer_ever.txt",
             1, 1, "Red", None,
         )
@@ -432,16 +434,16 @@ class TestHighlight:
     def test_missing_lines_returns_error(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "content")
-        result = client.exec_lua(_HIGHLIGHT_LUA, p, None, None, None, None)
+        result = client.exec_lua(HIGHLIGHT, p, None, None, None, None)
         assert "error" in result
-        result2 = client.exec_lua(_HIGHLIGHT_LUA, p, 1, None, None, None)
+        result2 = client.exec_lua(HIGHLIGHT, p, 1, None, None, None)
         assert "error" in result2
 
     def test_highlight_does_not_modify_content(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "hello\nworld")
-        client.exec_lua(_HIGHLIGHT_LUA, p, 1, 2, "#334455", None)
-        buf = client.exec_lua(_READ_BUF_LUA, p, None, None)
+        client.exec_lua(HIGHLIGHT, p, 1, 2, "#334455", None)
+        buf = client.exec_lua(READ_BUF, p, None, None)
         lines = [l.split(": ", 1)[1] for l in buf["lines"]]
         assert lines == ["hello", "world"]
 

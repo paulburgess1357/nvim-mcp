@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from nvim_mcp.neovim import NeovimManager
+from nvim_mcp.manager import NeovimManager
 
 mcp = FastMCP("nvim-mcp")
 manager = NeovimManager()
