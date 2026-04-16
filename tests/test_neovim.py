@@ -11,7 +11,7 @@ import asyncio
 import os
 import socket
 import stat
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import msgpack
 import pytest
@@ -94,6 +94,18 @@ class TestEnvInt:
         with patch.dict(os.environ, {"NVIM_MCP_TEST_VAR": "-5"}):
             assert _env_int("NVIM_MCP_TEST_VAR", 42) == -5
 
+    def test_returns_default_on_empty_string(self):
+        with patch.dict(os.environ, {"NVIM_MCP_TEST_VAR": ""}):
+            assert _env_int("NVIM_MCP_TEST_VAR", 42) == 42
+
+    def test_returns_default_on_whitespace(self):
+        with patch.dict(os.environ, {"NVIM_MCP_TEST_VAR": " "}):
+            assert _env_int("NVIM_MCP_TEST_VAR", 42) == 42
+
+    def test_returns_default_on_float_string(self):
+        with patch.dict(os.environ, {"NVIM_MCP_TEST_VAR": "3.14"}):
+            assert _env_int("NVIM_MCP_TEST_VAR", 42) == 42
+
 
 # ===================================================================
 # _format_rpc_error
@@ -117,6 +129,15 @@ class TestFormatRpcError:
 
     def test_empty_list_falls_through(self):
         assert _format_rpc_error([]) == "[]"
+
+    def test_list_with_extra_elements(self):
+        assert _format_rpc_error([1, "main error", "extra"]) == "main error"
+
+    def test_none_value(self):
+        assert _format_rpc_error(None) == "None"
+
+    def test_nested_list(self):
+        assert _format_rpc_error([0, [1, "nested"]]) == "[1, 'nested']"
 
 
 # ===================================================================
@@ -153,6 +174,13 @@ class TestNvimClientConnect:
         mock_sock.settimeout.assert_called_once_with(3.0)
         mock_sock.connect.assert_called_once_with("/tmp/test.sock")
         assert client._sock is mock_sock
+
+    def test_connect_uses_default_timeout(self):
+        mock_sock = MagicMock(spec=socket.socket)
+        with patch("nvim_mcp.neovim.socket.socket", return_value=mock_sock):
+            NvimClient.connect("/tmp/test.sock")
+        from nvim_mcp.neovim import _CONNECT_TIMEOUT
+        mock_sock.settimeout.assert_called_once_with(_CONNECT_TIMEOUT)
 
     def test_connect_closes_socket_on_failure(self):
         mock_sock = MagicMock(spec=socket.socket)
@@ -228,6 +256,48 @@ class TestNvimClientRequest:
         sock.recv.side_effect = [malformed, good]
         client = NvimClient(sock)
         assert client.request("nvim_eval", "1") == "good"
+
+    def test_response_split_across_recv_calls(self):
+        full = msgpack.packb([1, 1, None, "split_result"])
+        mid = len(full) // 2
+        sock = MagicMock(spec=socket.socket)
+        sock.recv.side_effect = [full[:mid], full[mid:]]
+        client = NvimClient(sock)
+        assert client.request("nvim_eval", "1") == "split_result"
+
+    def test_multiple_messages_in_single_recv(self):
+        notification = msgpack.packb([2, "redraw", []])
+        response = msgpack.packb([1, 1, None, "batched"])
+        sock = MagicMock(spec=socket.socket)
+        sock.recv.return_value = notification + response
+        client = NvimClient(sock)
+        assert client.request("nvim_eval", "1") == "batched"
+
+    def test_request_with_no_args(self):
+        response = msgpack.packb([1, 1, None, "ok"])
+        sock = MagicMock(spec=socket.socket)
+        sock.recv.return_value = response
+        client = NvimClient(sock)
+        client.request("nvim_get_current_line")
+        sent = msgpack.unpackb(sock.sendall.call_args[0][0])
+        assert sent[3] == []
+
+    def test_request_with_multiple_args(self):
+        response = msgpack.packb([1, 1, None, "ok"])
+        sock = MagicMock(spec=socket.socket)
+        sock.recv.return_value = response
+        client = NvimClient(sock)
+        client.request("nvim_buf_set_lines", 0, 0, -1, False, ["a", "b"])
+        sent = msgpack.unpackb(sock.sendall.call_args[0][0])
+        assert sent[3] == [0, 0, -1, False, ["a", "b"]]
+
+    def test_skips_non_list_unpacked_values(self):
+        scalar = msgpack.packb("just a string")
+        response = msgpack.packb([1, 1, None, "ok"])
+        sock = MagicMock(spec=socket.socket)
+        sock.recv.side_effect = [scalar, response]
+        client = NvimClient(sock)
+        assert client.request("nvim_eval", "1") == "ok"
 
 
 class TestNvimClientConvenienceMethods:
@@ -351,6 +421,41 @@ class TestDiscover:
         mgr = NeovimManager()
         with (
             patch.object(NeovimManager, "_all_sockets", return_value=[]),
+        ):
+            result = asyncio.run(mgr.discover())
+        assert result == []
+
+    def test_discover_cache_returns_independent_copy(self):
+        mgr = NeovimManager()
+        instances = [_make_instance(0)]
+        p1, p2 = _patch_discovery(instances)
+        with p1, p2:
+            asyncio.run(mgr.discover())
+        result2 = asyncio.run(mgr.discover())
+        result2.append(_make_instance(1))
+        result3 = asyncio.run(mgr.discover())
+        assert len(result3) == 1
+
+    def test_discover_probe_timeout_returns_none(self):
+        mgr = NeovimManager()
+        with (
+            patch.object(NeovimManager, "_all_sockets", return_value=["/sock1"]),
+            patch.object(
+                NeovimManager, "_probe_socket",
+                side_effect=asyncio.TimeoutError("probe timed out"),
+            ),
+        ):
+            result = asyncio.run(mgr.discover())
+        assert result == []
+
+    def test_discover_probe_generic_exception(self):
+        mgr = NeovimManager()
+        with (
+            patch.object(NeovimManager, "_all_sockets", return_value=["/sock1"]),
+            patch.object(
+                NeovimManager, "_probe_socket",
+                side_effect=RuntimeError("unexpected"),
+            ),
         ):
             result = asyncio.run(mgr.discover())
         assert result == []
@@ -504,6 +609,46 @@ class TestConnect:
             result = asyncio.run(mgr.connect())
         assert result["file"] == "(none)"
 
+    def test_connect_state_missing_cwd_key(self):
+        mgr = NeovimManager()
+        inst = _make_instance()
+        mock_nvim = _make_mock_nvim()
+        mock_nvim.exec_lua.return_value = {"windows": [{"file": "x.py"}]}
+        p1, p2 = _patch_discovery([inst])
+        with p1, p2, patch.object(NvimClient, "connect", return_value=mock_nvim):
+            result = asyncio.run(mgr.connect())
+        assert result["cwd"] == "?"
+
+    def test_connect_state_missing_windows_key(self):
+        mgr = NeovimManager()
+        inst = _make_instance()
+        mock_nvim = _make_mock_nvim()
+        mock_nvim.exec_lua.return_value = {"cwd": "/c"}
+        p1, p2 = _patch_discovery([inst])
+        with p1, p2, patch.object(NvimClient, "connect", return_value=mock_nvim):
+            result = asyncio.run(mgr.connect())
+        assert result["file"] == "(none)"
+
+    def test_connect_window_with_empty_file_string(self):
+        mgr = NeovimManager()
+        inst = _make_instance()
+        mock_nvim = _make_mock_nvim()
+        mock_nvim.exec_lua.return_value = {"cwd": "/c", "windows": [{"file": ""}]}
+        p1, p2 = _patch_discovery([inst])
+        with p1, p2, patch.object(NvimClient, "connect", return_value=mock_nvim):
+            result = asyncio.run(mgr.connect())
+        assert result["file"] == "(none)"
+
+    def test_connect_window_missing_file_key(self):
+        mgr = NeovimManager()
+        inst = _make_instance()
+        mock_nvim = _make_mock_nvim()
+        mock_nvim.exec_lua.return_value = {"cwd": "/c", "windows": [{"buftype": "term"}]}
+        p1, p2 = _patch_discovery([inst])
+        with p1, p2, patch.object(NvimClient, "connect", return_value=mock_nvim):
+            result = asyncio.run(mgr.connect())
+        assert result["file"] == "(none)"
+
 
 # ===================================================================
 # NeovimManager — send_command
@@ -560,6 +705,33 @@ class TestSendCommand:
         with p1, p2, patch.object(NvimClient, "connect", return_value=mock_nvim):
             result = asyncio.run(mgr.send_command("w"))
         assert result["output"] == "connected!"
+
+    def test_auto_connect_fails_no_instances(self):
+        mgr = NeovimManager()
+        with patch.object(NeovimManager, "_all_sockets", return_value=[]):
+            result = asyncio.run(mgr.send_command("w"))
+        assert "error" in result
+        assert "No Neovim instances" in result["error"]
+
+    def test_auto_connect_fails_multiple_instances(self):
+        mgr = NeovimManager()
+        instances = [_make_instance(0), _make_instance(1)]
+        p1, p2 = _patch_discovery(instances)
+        with p1, p2:
+            result = asyncio.run(mgr.send_command("w"))
+        assert "instances" in result
+
+    def test_command_list_returns_error_on_auto_connect_fail(self):
+        mgr = NeovimManager()
+        with patch.object(NeovimManager, "_all_sockets", return_value=[]):
+            result = asyncio.run(mgr.send_command(["cmd1", "cmd2"]))
+        assert "error" in result
+
+    def test_empty_command_list(self):
+        mgr, mock_nvim = _connected_manager()
+        result = asyncio.run(mgr.send_command([]))
+        assert isinstance(result, list)
+        assert len(result) == 0
 
 
 # ===================================================================
@@ -619,6 +791,14 @@ class TestGetState:
             with pytest.raises(RuntimeError, match="No Neovim instances"):
                 asyncio.run(mgr.get_state())
 
+    def test_raises_when_multiple_instances(self):
+        mgr = NeovimManager()
+        instances = [_make_instance(0), _make_instance(1)]
+        p1, p2 = _patch_discovery(instances)
+        with p1, p2:
+            with pytest.raises(RuntimeError):
+                asyncio.run(mgr.get_state())
+
 
 # ===================================================================
 # NeovimManager — get_diagnostics
@@ -650,6 +830,18 @@ class TestGetDiagnostics:
         with patch.object(NeovimManager, "_all_sockets", return_value=[]):
             with pytest.raises(RuntimeError):
                 asyncio.run(mgr.get_diagnostics())
+
+    def test_returns_empty_list(self):
+        mgr, mock_nvim = _connected_manager()
+        mock_nvim.exec_lua.return_value = []
+        result = asyncio.run(mgr.get_diagnostics())
+        assert result == []
+
+    def test_diagnostics_result_is_dict_without_error_key(self):
+        mgr, mock_nvim = _connected_manager()
+        mock_nvim.exec_lua.return_value = {"some_key": "value"}
+        result = asyncio.run(mgr.get_diagnostics())
+        assert result == {"some_key": "value"}
 
 
 # ===================================================================
@@ -836,6 +1028,20 @@ class TestReconnectUnlocked:
             asyncio.run(mgr._reconnect_unlocked())
         assert mgr._nvim is new_nvim
 
+    def test_reconnect_when_nvim_is_none(self):
+        mgr = NeovimManager()
+        mgr._socket_path = "/tmp/nvim.0/0"
+        new_nvim = _make_mock_nvim()
+        with patch.object(NvimClient, "connect", return_value=new_nvim):
+            asyncio.run(mgr._reconnect_unlocked())
+        assert mgr._nvim is new_nvim
+
+    def test_reconnect_timeout_error(self):
+        mgr, _ = _connected_manager()
+        with patch.object(NvimClient, "connect", side_effect=asyncio.TimeoutError()):
+            with pytest.raises(RuntimeError, match="Reconnect.*failed"):
+                asyncio.run(mgr._reconnect_unlocked())
+
 
 # ===================================================================
 # NeovimManager — _retry_on_disconnect
@@ -920,6 +1126,34 @@ class TestRetryOnDisconnect:
         with patch.object(NvimClient, "connect", side_effect=OSError("dead")):
             with pytest.raises(RuntimeError, match="Reconnect.*failed"):
                 asyncio.run(mgr._retry_on_disconnect(sync_fn))
+
+    def test_second_attempt_also_fails_propagates(self):
+        mgr, _ = _connected_manager()
+
+        def sync_fn():
+            raise OSError("always broken")
+
+        new_nvim = _make_mock_nvim()
+        with patch.object(NvimClient, "connect", return_value=new_nvim):
+            with pytest.raises(OSError, match="always broken"):
+                asyncio.run(mgr._retry_on_disconnect(sync_fn))
+
+    def test_retry_with_nvim_closed_error(self):
+        mgr, _ = _connected_manager()
+        call_count = 0
+
+        def sync_fn():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise NvimError("Connection closed by Neovim")
+            return "ok"
+
+        new_nvim = _make_mock_nvim()
+        with patch.object(NvimClient, "connect", return_value=new_nvim):
+            result = asyncio.run(mgr._retry_on_disconnect(sync_fn))
+        assert result == "ok"
+        assert call_count == 2
 
 
 # ===================================================================
@@ -1053,6 +1287,48 @@ class TestFindSocketForTerminal:
         with patch("subprocess.run", side_effect=fake_pgrep):
             result = NeovimManager._find_socket_for_terminal(100, [inst])
         assert result == "/s"
+
+    def test_handles_non_numeric_pgrep_output(self):
+        instances = [_make_instance(0)]
+
+        def fake_pgrep(cmd, **_kwargs):
+            return MagicMock(returncode=0, stdout="notanumber\n")
+
+        with patch("subprocess.run", side_effect=fake_pgrep):
+            result = NeovimManager._find_socket_for_terminal(100, instances)
+        assert result is None
+
+    def test_empty_instances_list(self):
+        def fake_pgrep(cmd, **_kwargs):
+            return MagicMock(returncode=0, stdout="200\n")
+
+        with patch("subprocess.run", side_effect=fake_pgrep):
+            result = NeovimManager._find_socket_for_terminal(100, [])
+        assert result is None
+
+    def test_terminal_pid_is_nvim_pid(self):
+        inst = _make_instance(0)
+
+        def fake_pgrep(cmd, **_kwargs):
+            return MagicMock(returncode=1, stdout="")
+
+        with patch("subprocess.run", side_effect=fake_pgrep):
+            result = NeovimManager._find_socket_for_terminal(inst.pid, [inst])
+        assert result == inst.socket_path
+
+    def test_handles_mixed_valid_invalid_children(self):
+        """ValueError from non-numeric line aborts the for loop for that pid."""
+        inst = _make_instance(0)
+
+        def fake_pgrep(cmd, **_kwargs):
+            pid_arg = cmd[2]
+            if pid_arg == "100":
+                return MagicMock(returncode=0, stdout="abc\n200\n")
+            return MagicMock(returncode=1, stdout="")
+
+        with patch("subprocess.run", side_effect=fake_pgrep):
+            result = NeovimManager._find_socket_for_terminal(100, [inst])
+        assert result is None
 
 
 # ===================================================================
@@ -1197,6 +1473,132 @@ class TestAllSockets:
 
         assert len(result) == 1
 
+    def test_depth_limit_stops_traversal(self):
+        walked_dirs = []
+
+        def fake_walk(base_dir, **kwargs):
+            yield (base_dir, ["d1"], [])
+            yield (base_dir + "/d1", ["d2"], [])
+            yield (base_dir + "/d1/d2", ["d3"], [])
+            yield (base_dir + "/d1/d2/d3", ["d4"], [])
+            yield (base_dir + "/d1/d2/d3/d4", ["nvim_deep"], ["nvim.deep_sock"])
+            walked_dirs.append("too_deep")
+
+        with patch.dict(os.environ, {}, clear=True):
+            with (
+                patch("os.path.isdir", return_value=True),
+                patch("os.walk", side_effect=fake_walk),
+                patch("os.stat", side_effect=OSError("irrelevant")),
+                patch("os.path.realpath", side_effect=lambda p: p),
+                patch("os.getuid", return_value=1000),
+            ):
+                NeovimManager._all_sockets()
+
+    def test_stat_failure_for_individual_entry(self):
+        def fake_walk(base_dir, **kwargs):
+            if base_dir == "/tmp":
+                yield ("/tmp", [], ["nvim.ok", "nvim.bad"])
+            else:
+                return
+
+        def fake_stat(path):
+            if "bad" in path:
+                raise OSError("permission denied")
+            m = MagicMock()
+            m.st_mode = stat.S_IFSOCK | 0o755
+            return m
+
+        with patch.dict(os.environ, {}, clear=True):
+            with (
+                patch("os.path.isdir", side_effect=lambda d: d == "/tmp"),
+                patch("os.walk", side_effect=fake_walk),
+                patch("os.stat", side_effect=fake_stat),
+                patch("os.path.realpath", side_effect=lambda p: p),
+                patch("os.getuid", return_value=1000),
+            ):
+                result = NeovimManager._all_sockets()
+
+        assert len(result) == 1
+        assert any("nvim.ok" in r for r in result)
+
+    def test_getuid_attribute_error_windows_compat(self):
+        def fake_walk(base_dir, **kwargs):
+            if base_dir == "/tmp":
+                yield ("/tmp", [], ["nvim.sock"])
+            else:
+                return
+
+        def fake_stat(path):
+            m = MagicMock()
+            m.st_mode = stat.S_IFSOCK | 0o755
+            return m
+
+        with patch.dict(os.environ, {}, clear=True):
+            with (
+                patch("os.path.isdir", side_effect=lambda d: d == "/tmp"),
+                patch("os.walk", side_effect=fake_walk),
+                patch("os.stat", side_effect=fake_stat),
+                patch("os.path.realpath", side_effect=lambda p: p),
+                patch("os.getuid", side_effect=AttributeError),
+            ):
+                result = NeovimManager._all_sockets()
+
+        assert any("nvim.sock" in r for r in result)
+
+    def test_no_search_dirs_exist(self):
+        with patch.dict(os.environ, {}, clear=True):
+            with (
+                patch("os.path.isdir", return_value=False),
+                patch("os.getuid", return_value=1000),
+            ):
+                result = NeovimManager._all_sockets()
+        assert result == []
+
+    def test_tmpdir_env_var_adds_search_dir(self):
+        def fake_walk(base_dir, **kwargs):
+            if base_dir == "/custom/tmp":
+                yield ("/custom/tmp", [], ["nvim.sock"])
+            else:
+                return
+
+        def fake_stat(path):
+            m = MagicMock()
+            m.st_mode = stat.S_IFSOCK | 0o755
+            return m
+
+        with patch.dict(os.environ, {"TMPDIR": "/custom/tmp"}, clear=True):
+            with (
+                patch("os.path.isdir", return_value=True),
+                patch("os.walk", side_effect=fake_walk),
+                patch("os.stat", side_effect=fake_stat),
+                patch("os.path.realpath", side_effect=lambda p: p),
+                patch("os.getuid", return_value=1000),
+            ):
+                result = NeovimManager._all_sockets()
+
+        assert any("nvim.sock" in r for r in result)
+
+    def test_entry_is_not_socket_skipped(self):
+        def fake_walk(base_dir, **kwargs):
+            yield (base_dir, [], ["nvim.log"])
+
+        def fake_stat(path):
+            m = MagicMock()
+            m.st_mode = stat.S_IFREG | 0o644
+            return m
+
+        with patch.dict(os.environ, {}, clear=True):
+            with (
+                patch("os.path.isdir", return_value=True),
+                patch("os.walk", side_effect=fake_walk),
+                patch("os.stat", side_effect=fake_stat),
+                patch("os.path.realpath", side_effect=lambda p: p),
+                patch("os.getuid", return_value=1000),
+            ):
+                result = NeovimManager._all_sockets()
+
+        assert result == []
+
 
 # ===================================================================
 # NeovimManager._probe_socket
@@ -1277,6 +1679,12 @@ class TestSyncHelpers:
         result = mgr._run_command_sync("cmd")
         assert result == {"output": "(no output)"}
 
+    def test_run_command_sync_missing_keys(self):
+        mgr, mock_nvim = _connected_manager()
+        mock_nvim.exec_lua.return_value = {}
+        result = mgr._run_command_sync("cmd")
+        assert result == {"output": "(no output)"}
+
     def test_run_commands_sync(self):
         mgr, mock_nvim = _connected_manager()
         mock_nvim.exec_lua.side_effect = [
@@ -1331,6 +1739,9 @@ class TestSyncHelpers:
         mock_nvim.exec_lua.return_value = {"highlighted": 3}
         result = mgr._highlight_buf_sync("f.py", 1, 3, "#aabbcc")
         assert result == {"highlighted": 3}
+        call_args = mock_nvim.exec_lua.call_args[0]
+        assert call_args[4] == "#aabbcc"
+        assert call_args[5] is False
 
     def test_clear_highlights_sync(self):
         mgr, mock_nvim = _connected_manager()
