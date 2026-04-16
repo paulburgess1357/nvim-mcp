@@ -1,3 +1,3 @@
 """MCP server for Neovim control via msgpack-RPC."""
 
-__version__ = "0.5.3"
+__version__ = "0.6.0"
