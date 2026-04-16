@@ -9,6 +9,13 @@ Works with Cursor, Claude Code, Codex, and any MCP-compatible client.
 ## Demos
 
 <details open>
+<summary>Using nvim-mcp across two terminals</summary>
+
+<video src="https://github.com/user-attachments/assets/6de3f7a4-9c12-4a2f-96d9-d02d21935d37"></video>
+
+</details>
+
+<details>
 <summary>Using nvim-mcp with a terminal inside Neovim</summary>
 
 <video src="https://github.com/user-attachments/assets/93fd17a6-0f93-48db-8428-d1cba51e29f2"></video>
@@ -26,13 +33,6 @@ Works with Cursor, Claude Code, Codex, and any MCP-compatible client.
 <summary>Using nvim-mcp in Cursor</summary>
 
 <video src="https://github.com/user-attachments/assets/388f5f39-ab4d-4747-9eca-e09c666439ee"></video>
-
-</details>
-
-<details>
-<summary>Using nvim-mcp across two terminals</summary>
-
-<video src="https://github.com/user-attachments/assets/6de3f7a4-9c12-4a2f-96d9-d02d21935d37"></video>
 
 </details>
 
