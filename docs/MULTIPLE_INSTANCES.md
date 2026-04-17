@@ -30,7 +30,7 @@ Connect to the Neovim instance at /tmp/nvim-a.sock
 
 You can also set `NVIM_ADDRESS` in your MCP config to always connect to a specific socket without the agent needing to discover it. See the [configuration guide](../config/README.md#3-environment-variables-optional) for details.
 
-<details>
+<details open>
 <summary>Demo — connecting to a named socket</summary>
 
 <video src="https://github.com/user-attachments/assets/dec7932d-7f84-4648-8ba1-e6f25b4b9920"></video>
