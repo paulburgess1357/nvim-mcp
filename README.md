@@ -95,6 +95,7 @@ what happened. Wait for me to say "next" before moving on.
 - Linux
 - Python ≥ 3.10
 - Neovim ≥ 0.11
+- [Older Neovim versions](config/README.md#3-environment-variables-optional) work with `--listen` and `NVIM_ADDRESS`
 
 ## License
 
