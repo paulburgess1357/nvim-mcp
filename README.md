@@ -2,9 +2,20 @@
 
 [![PyPI](https://img.shields.io/pypi/v/nvim-mcp)](https://pypi.org/project/nvim-mcp/)
 
-An [MCP](https://modelcontextprotocol.io/) server that gives any AI agent first-class access to your running Neovim session. Agents can see your editor state, read and edit buffers, run commands, send keystrokes, query diagnostics, and annotate code with highlights — all through Neovim's native msgpack-RPC socket.
+An [MCP](https://modelcontextprotocol.io/) server that gives AI agents first-class access to your running Neovim session. It connects through Neovim's native msgpack-RPC socket — no plugins required.
 
 Works with Cursor, Claude Code, Codex, and any MCP-compatible client.
+
+## What agents can do
+
+- **See what you see** — editor mode, working directory, open buffers, window layout, cursor context, folds, selections, marks, and diagnostics.
+- **Edit buffers in memory** — find-and-replace or full rewrites with immediate feedback and full undo support. Nothing touches disk until you save.
+- **Run any Vim command** — `:w`, `:e`, `:vsplit`, macros, or anything else you could type at the command line.
+- **Send keystrokes** — navigate, enter insert mode, trigger mappings.
+- **Query LSP diagnostics** — errors, warnings, and hints across one buffer or the whole session.
+- **Annotate code with highlights** — colored extmarks to draw your attention to specific lines.
+
+Anything you can do in Neovim, the agent can too. See the [full tool reference](docs/TOOLS.md) for details.
 
 ## Demos
 
@@ -36,45 +47,38 @@ Works with Cursor, Claude Code, Codex, and any MCP-compatible client.
 
 </details>
 
-## Tools
+## Quick start
 
-Agents can run any Vim command and send any keystrokes, so anything you can do in Neovim, the agent can too. Dedicated tools handle the most common operations without requiring the agent to construct raw commands:
+1. **Install [uv](https://docs.astral.sh/uv/)** if you don't have it:
 
-| Tool | Purpose |
-| --- | --- |
-| `get_state` | Session snapshot — mode, cwd, buffers, windows, cursor context, folds, selections, marks, diagnostics |
-| `send_command` | Run ex commands (`:w`, `:e path`, `:wincmd v`, etc.) |
-| `send_keys` | Send keystrokes (Esc is prepended automatically) |
-| `read_full_buf` / `read_buf_range` | Read buffer contents with line numbers |
-| `find_and_replace_buf` | Exact-match find and replace in a buffer |
-| `write_full_buf` | Replace entire buffer contents |
-| `get_all_diagnostics` / `get_buf_diagnostics` | LSP diagnostics (errors, warnings, hints) |
-| `highlight_range` / `highlight_ranges` | Annotate lines with colored extmarks |
-| `clear_highlights` | Remove MCP highlights from a buffer |
-| `connect` | Discover and connect to running Neovim instances |
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
 
-Buffer edits are in-memory — nothing is written to disk until saved. Running instances are auto-discovered; when multiple exist, the agent picks by index, socket path, or terminal PID.
+2. **Register the MCP server** with your client. Example for Cursor (`.cursor/mcp.json`):
 
-## Setup
+   ```json
+   {
+     "mcpServers": {
+       "nvim-mcp": {
+         "command": "uvx",
+         "args": ["nvim-mcp"]
+       }
+     }
+   }
+   ```
 
-1. **Install [uv](https://docs.astral.sh/uv/)** if you don't have it: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-2. **Register the MCP server** — example for Cursor (`.cursor/mcp.json`):
+   For Claude Code, Codex, Claude Desktop, and other clients, see the [configuration guide](config/README.md).
 
-```json
-{
-  "mcpServers": {
-    "nvim-mcp": {
-      "command": "uvx",
-      "args": ["nvim-mcp"]
-    }
-  }
-}
-```
+3. **Add agent rules** so the agent knows *when and how* to use the tools:
 
-   See [`config/README.md`](config/README.md) for other clients (Claude CLI, Codex, etc.) or to run from a local clone.
+   ```bash
+   ./config/generate-configs.sh
+   ```
 
-3. **Add agent rules** — registering the server gives the agent the tools, but a rule file teaches it *when and how* to use them. Run `./config/generate-configs.sh` and pick your client.
-4. **Start Neovim** — on most Linux systems it listens on a Unix socket automatically and is discovered by nvim-mcp. If auto-discovery doesn't find your instance (custom socket name, TCP address, etc.), see the [environment variables](config/README.md#3-environment-variables-optional) section.
+   See the [configuration guide](config/README.md#2-add-agent-rules) for details.
+
+4. **Start Neovim** — on most Linux systems it listens on a Unix socket automatically and is discovered by nvim-mcp. If auto-discovery doesn't work, see [environment variables](config/README.md#3-environment-variables-optional).
 
 ## Verify it works
 
@@ -94,8 +98,7 @@ what happened. Wait for me to say "next" before moving on.
 
 - Linux
 - Python ≥ 3.10
-- Neovim ≥ 0.11
-- [Older Neovim versions](config/README.md#3-environment-variables-optional) work with `--listen` and `NVIM_ADDRESS`
+- Neovim ≥ 0.11 ([older versions](config/README.md#3-environment-variables-optional) work with `--listen` and `NVIM_ADDRESS`)
 
 ## License
 

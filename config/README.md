@@ -1,5 +1,11 @@
 # Configuration
 
+This guide covers everything beyond basic installation: registering the MCP server with your client, adding agent rules, and tuning optional settings.
+
+For a quick overview and getting-started steps, see the [main README](../README.md).
+
+---
+
 ## 1. Register the MCP server
 
 Add nvim-mcp to your MCP client so it knows how to launch the server.
@@ -20,7 +26,7 @@ Add to `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global):
 }
 ```
 
-From a local clone, use `uv run` instead:
+From a local clone:
 
 ```json
 {
@@ -123,43 +129,41 @@ args = ["run", "--directory", "<path/to/nvim-mcp>", "nvim-mcp"]
 <details>
 <summary><strong>Other MCP clients</strong></summary>
 
-The command is `uvx`, the argument is `nvim-mcp`. From a local clone, use `uv run --directory <path/to/nvim-mcp> nvim-mcp` instead. Use whatever config format your client expects.
+The command is `uvx`, the argument is `nvim-mcp`. From a local clone, use `uv run --directory <path/to/nvim-mcp> nvim-mcp` instead. Adapt to whatever config format your client expects.
 
 </details>
 
 ## 2. Add agent rules
 
-Registering the server gives the assistant the tools, but a rule file teaches
-it **when and how** to use them.
+Registering the server gives the agent the tools, but a rule file teaches it **when and how** to use them.
 
-Run the config generator and pick your tool:
+Run the generator and pick your client:
 
 ```bash
 ./config/generate-configs.sh
 ```
 
-It will generate the appropriate rule file and tell you where to place it:
+It produces the appropriate rule file and tells you where to place it:
 
-| Tool   | Global path                          |
-|--------|--------------------------------------|
-| Cursor | `~/.cursor/rules/nvim-mcp.mdc`      |
-| Claude | `~/.claude/CLAUDE.md`                |
-| Codex  | `~/.codex/AGENTS.md`                 |
+| Client | Default path |
+| ------ | ------------ |
+| Cursor | `~/.cursor/rules/nvim-mcp.mdc` |
+| Claude | `~/.claude/CLAUDE.md` |
+| Codex  | `~/.codex/AGENTS.md` |
 
-The source template is **[AGENTS-EXAMPLE.md](AGENTS-EXAMPLE.md)** — adjust it
-to match your workflow.
+The source template is [AGENTS-EXAMPLE.md](AGENTS-EXAMPLE.md) — adjust it to match your workflow.
 
 ## 3. Environment variables (optional)
 
-These are **only needed** if you want to override defaults. Most setups work without any of them.
+These are only needed to override defaults. Most setups work without any of them.
 
-Because the MCP server runs as a separate process spawned by your client, these must be set in the MCP config's `env` field — setting them in your shell has no effect.
+Because the MCP server runs as a separate process spawned by your client, set these in the MCP config's `env` field — your shell environment has no effect.
 
-| Variable                          | Default           | Description                                        |
-| --------------------------------- | ----------------- | -------------------------------------------------- |
-| `NVIM_ADDRESS`                | _(auto-discover)_ | Connect directly to a Neovim instance, skipping discovery. Accepts a Unix socket path or a TCP `host:port` address. |
-| `NVIM_MCP_ACTIVE_CONTEXT_LINES`   | `20`              | Lines of context around the cursor in the active window.  |
-| `NVIM_MCP_INACTIVE_CONTEXT_LINES` | `20`              | Lines of context around the cursor in inactive windows.   |
+| Variable | Default | Description |
+| -------- | ------- | ----------- |
+| `NVIM_ADDRESS` | _(auto-discover)_ | Connect directly to a Neovim instance, skipping discovery. Accepts a Unix socket path or `host:port`. |
+| `NVIM_MCP_ACTIVE_CONTEXT_LINES` | `20` | Lines of context around the cursor in the active window. |
+| `NVIM_MCP_INACTIVE_CONTEXT_LINES` | `20` | Lines of context around the cursor in inactive windows. |
 
 ### When do you need `NVIM_ADDRESS`?
 
@@ -168,7 +172,7 @@ Auto-discovery finds Neovim sockets whose filename starts with `nvim` in standar
 - Your socket has a **custom name** (e.g. `nvim --listen /tmp/my-editor.sock`)
 - You're using a **TCP address** (e.g. `nvim --listen 127.0.0.1:6666`)
 
-Example for Cursor (`.cursor/mcp.json`) — adapt the `env` block for your client:
+Example `env` block for Cursor (`.cursor/mcp.json`) — adapt for your client:
 
 ```jsonc
 {
@@ -188,7 +192,7 @@ Example for Cursor (`.cursor/mcp.json`) — adapt the `env` block for your clien
 
 ## 4. Clearing highlights manually
 
-`clear_highlights` clears via the MCP tool, but you can also clear them directly in Neovim. Add this to your config:
+`clear_highlights` removes MCP highlights via the tool, but you can also clear them directly in Neovim. Add this to your Neovim config:
 
 ```lua
 vim.api.nvim_create_user_command('McpClearHighlights', function()
