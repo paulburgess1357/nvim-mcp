@@ -13,12 +13,12 @@ from nvim_mcp.types import NvimInstance
 def find_all_sockets() -> list[str]:
     """Walk filesystem directories for Unix sockets whose names start with ``nvim``.
 
-    Checks ``NVIM_SOCKET_PATH`` env var first (direct override), then scans
+    Checks ``NVIM_ADDRESS`` env var first (direct override), then scans
     ``XDG_RUNTIME_DIR``, ``/run/user/<uid>``, ``TMPDIR``, and ``/tmp``.
     Deduplicates by realpath and limits directory depth to 4.
     TCP addresses (``host:port``) are returned as-is without filesystem checks.
     """
-    override = os.environ.get("NVIM_SOCKET_PATH")
+    override = os.environ.get("NVIM_ADDRESS")
     if override:
         if _parse_tcp_address(override) is not None:
             return [override]

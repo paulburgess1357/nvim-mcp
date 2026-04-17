@@ -1395,7 +1395,7 @@ class TestFormatInstanceDict:
 
 class TestAllSockets:
     def test_nvim_socket_path_override(self):
-        with patch.dict(os.environ, {"NVIM_SOCKET_PATH": "/tmp/my_nvim.sock"}):
+        with patch.dict(os.environ, {"NVIM_ADDRESS": "/tmp/my_nvim.sock"}):
             with (
                 patch("os.path.realpath", return_value="/tmp/my_nvim.sock"),
                 patch("os.stat") as mock_stat,
@@ -1405,18 +1405,18 @@ class TestAllSockets:
         assert result == ["/tmp/my_nvim.sock"]
 
     def test_nvim_socket_path_tcp_address(self):
-        """TCP address in NVIM_SOCKET_PATH is returned without filesystem stat."""
-        with patch.dict(os.environ, {"NVIM_SOCKET_PATH": "127.0.0.1:6666"}):
+        """TCP address in NVIM_ADDRESS is returned without filesystem stat."""
+        with patch.dict(os.environ, {"NVIM_ADDRESS": "127.0.0.1:6666"}):
             result = find_all_sockets()
         assert result == ["127.0.0.1:6666"]
 
     def test_nvim_socket_path_tcp_hostname(self):
-        with patch.dict(os.environ, {"NVIM_SOCKET_PATH": "localhost:1234"}):
+        with patch.dict(os.environ, {"NVIM_ADDRESS": "localhost:1234"}):
             result = find_all_sockets()
         assert result == ["localhost:1234"]
 
     def test_nvim_socket_path_override_not_socket(self):
-        with patch.dict(os.environ, {"NVIM_SOCKET_PATH": "/tmp/not_a_socket"}, clear=False):
+        with patch.dict(os.environ, {"NVIM_ADDRESS": "/tmp/not_a_socket"}, clear=False):
             with (
                 patch("os.path.realpath", return_value="/tmp/not_a_socket"),
                 patch("os.stat") as mock_stat,
@@ -1427,7 +1427,7 @@ class TestAllSockets:
         assert "/tmp/not_a_socket" not in result
 
     def test_nvim_socket_path_override_stat_failure(self):
-        with patch.dict(os.environ, {"NVIM_SOCKET_PATH": "/tmp/gone"}, clear=False):
+        with patch.dict(os.environ, {"NVIM_ADDRESS": "/tmp/gone"}, clear=False):
             with (
                 patch("os.path.realpath", return_value="/tmp/gone"),
                 patch("os.stat", side_effect=OSError("no such file")),
@@ -1452,10 +1452,10 @@ class TestAllSockets:
                 m.st_mode = stat.S_IFREG | 0o644
             return m
 
-        with patch.dict(os.environ, {"NVIM_SOCKET_PATH": ""}, clear=False):
+        with patch.dict(os.environ, {"NVIM_ADDRESS": ""}, clear=False):
             with (
                 patch("os.environ.get", side_effect=lambda k, *a: {
-                    "NVIM_SOCKET_PATH": "",
+                    "NVIM_ADDRESS": "",
                     "XDG_RUNTIME_DIR": "/run/user/1000",
                     "TMPDIR": None,
                 }.get(k, a[0] if a else None)),

@@ -149,13 +149,42 @@ It will generate the appropriate rule file and tell you where to place it:
 The source template is **[AGENTS-EXAMPLE.md](AGENTS-EXAMPLE.md)** — adjust it
 to match your workflow.
 
-## 3. Optional Environment variables
+## 3. Environment variables (optional)
+
+These are **only needed** if you want to override defaults. Most setups work without any of them.
+
+Because the MCP server runs as a separate process spawned by your client, these must be set in the MCP config's `env` field — setting them in your shell has no effect.
 
 | Variable                          | Default           | Description                                        |
 | --------------------------------- | ----------------- | -------------------------------------------------- |
-| `NVIM_SOCKET_PATH`                | _(auto-discover)_ | Skip discovery; connect directly to this socket path or TCP address (`host:port`). Required when the socket name doesn't start with `nvim` (e.g. `--listen /tmp/my.sock`) or when using TCP (e.g. `--listen 127.0.0.1:6666`). |
+| `NVIM_ADDRESS`                | _(auto-discover)_ | Connect directly to a Neovim instance, skipping discovery. Accepts a Unix socket path or a TCP `host:port` address. |
 | `NVIM_MCP_ACTIVE_CONTEXT_LINES`   | `20`              | Lines of context around the cursor in the active window.  |
 | `NVIM_MCP_INACTIVE_CONTEXT_LINES` | `20`              | Lines of context around the cursor in inactive windows.   |
+
+### When do you need `NVIM_ADDRESS`?
+
+Auto-discovery finds Neovim sockets whose filename starts with `nvim` in standard runtime directories (`$XDG_RUNTIME_DIR`, `/run/user/<uid>`, `/tmp`). You need `NVIM_ADDRESS` when:
+
+- Your socket has a **custom name** (e.g. `nvim --listen /tmp/my-editor.sock`)
+- You're using a **TCP address** (e.g. `nvim --listen 127.0.0.1:6666`)
+
+Example for Cursor (`.cursor/mcp.json`) — adapt the `env` block for your client:
+
+```jsonc
+{
+  "mcpServers": {
+    "nvim-mcp": {
+      "command": "uvx",
+      "args": ["nvim-mcp"],
+      "env": {
+        "NVIM_ADDRESS": "/tmp/my-editor.sock"  // or "127.0.0.1:6666"
+        // "NVIM_MCP_ACTIVE_CONTEXT_LINES": "30",
+        // "NVIM_MCP_INACTIVE_CONTEXT_LINES": "10"
+      }
+    }
+  }
+}
+```
 
 ## 4. Clearing highlights manually
 
