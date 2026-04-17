@@ -47,6 +47,13 @@ Anything you can do in Neovim, the agent can too. See the [full tool reference](
 
 </details>
 
+<details>
+<summary>Multiple Neovim instances</summary>
+
+<video src="https://github.com/user-attachments/assets/6c898a42-16c5-4f21-97d8-62f3e66d6d55"></video>
+
+</details>
+
 ## Quick start
 
 1. **Install [uv](https://docs.astral.sh/uv/)** if you don't have it:
@@ -78,7 +85,7 @@ Anything you can do in Neovim, the agent can too. See the [full tool reference](
 
    See the [configuration guide](config/README.md#2-add-agent-rules) for details.
 
-4. **Start Neovim** — on most Linux systems it listens on a Unix socket automatically and is discovered by nvim-mcp. If auto-discovery doesn't work, see [environment variables](config/README.md#3-environment-variables-optional).
+4. **Start Neovim** — on most Linux systems it listens on a Unix socket automatically and is discovered by nvim-mcp. If auto-discovery doesn't work, see [environment variables](config/README.md#3-environment-variables-optional). Running multiple instances? See [multiple instances](docs/MULTIPLE_INSTANCES.md).
 
 ## Verify it works
 

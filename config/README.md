@@ -165,6 +165,8 @@ Because the MCP server runs as a separate process spawned by your client, set th
 | `NVIM_MCP_ACTIVE_CONTEXT_LINES` | `20` | Lines of context around the cursor in the active window. |
 | `NVIM_MCP_INACTIVE_CONTEXT_LINES` | `20` | Lines of context around the cursor in inactive windows. |
 
+For working with multiple Neovim instances at once, see [multiple instances](../docs/MULTIPLE_INSTANCES.md).
+
 ### When do you need `NVIM_ADDRESS`?
 
 Auto-discovery finds Neovim sockets whose filename starts with `nvim` in standard runtime directories (`$XDG_RUNTIME_DIR`, `/run/user/<uid>`, `/tmp`). You need `NVIM_ADDRESS` when:
