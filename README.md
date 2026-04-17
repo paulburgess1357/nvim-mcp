@@ -14,6 +14,7 @@ Works with Cursor, Claude Code, Codex, and any MCP-compatible client.
 - **Send keystrokes** — navigate, enter insert mode, trigger mappings.
 - **Query LSP diagnostics** — errors, warnings, and hints across one buffer or the whole session.
 - **Annotate code with highlights** — colored extmarks to draw your attention to specific lines.
+- **Work with multiple instances** — auto-discovers running sessions and connects to the right one. See [multiple instances](docs/MULTIPLE_INSTANCES.md).
 
 Anything you can do in Neovim, the agent can too. See the [full tool reference](docs/TOOLS.md) for details.
 
