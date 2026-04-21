@@ -51,7 +51,7 @@ Anything you can do in Neovim, the agent can too. See the [full tool reference](
 <details>
 <summary>Multiple Neovim instances</summary>
 
-<video src="https://github.com/user-attachments/assets/c2806b11-cd1c-460c-b375-ff2d35b37579"></video>
+<video src="https://github.com/user-attachments/assets/15fa449e-0296-4815-8bfc-b9c33b5075bb"></video>
 
 </details>
 
