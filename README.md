@@ -57,7 +57,7 @@ Anything you can do in Neovim, the agent can too. See the [full tool reference](
 
 ## Quick start
 
-nvim-mcp runs via either [uv](https://docs.astral.sh/uv/) or [Nix](https://nixos.org/download/) — pick whichever you already use.
+nvim-mcp runs via [uv](https://docs.astral.sh/uv/) (recommended) or [Nix](https://nixos.org/download/).
 
 1. **Install a launcher.**
 
@@ -73,7 +73,7 @@ nvim-mcp runs via either [uv](https://docs.astral.sh/uv/) or [Nix](https://nixos
    <details>
    <summary><strong>Nix</strong></summary>
 
-   Install [Nix](https://nixos.org/download/) and enable flakes (add `experimental-features = nix-command flakes` to `~/.config/nix/nix.conf`, or use the [Determinate installer](https://determinate.systems/nix-installer/) which enables them by default).
+   Install [Nix](https://nixos.org/download/) — flakes must be enabled.
 
    </details>
 
@@ -113,13 +113,7 @@ nvim-mcp runs via either [uv](https://docs.astral.sh/uv/) or [Nix](https://nixos
 
    For Claude Code, Codex, Claude Desktop, and other clients, see the [configuration guide](config/README.md).
 
-3. **Add agent rules** so the agent knows *when and how* to use the tools:
-
-   ```bash
-   ./config/generate-configs.sh
-   ```
-
-   See the [configuration guide](config/README.md#2-add-agent-rules) for details.
+3. **Add agent rules — do not skip this.** Without rules, the agent has the tools but doesn't know *when or how* to use them, and behavior will be unreliable. See the [configuration guide](config/README.md#2-add-agent-rules) for setup.
 
 4. **Start Neovim** — on most Linux systems it listens on a Unix socket automatically and is discovered by nvim-mcp. If auto-discovery doesn't work, see [environment variables](config/README.md#3-environment-variables-optional). Running multiple instances? See [multiple instances](docs/MULTIPLE_INSTANCES.md).
 
