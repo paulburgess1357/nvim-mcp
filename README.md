@@ -57,13 +57,30 @@ Anything you can do in Neovim, the agent can too. See the [full tool reference](
 
 ## Quick start
 
-1. **Install [uv](https://docs.astral.sh/uv/)** if you don't have it:
+nvim-mcp runs via either [uv](https://docs.astral.sh/uv/) or [Nix](https://nixos.org/download/) — pick whichever you already use.
+
+1. **Install a launcher.**
+
+   <details open>
+   <summary><strong>uv</strong></summary>
 
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
+   </details>
+
+   <details>
+   <summary><strong>Nix</strong></summary>
+
+   Install [Nix](https://nixos.org/download/) and enable flakes (add `experimental-features = nix-command flakes` to `~/.config/nix/nix.conf`, or use the [Determinate installer](https://determinate.systems/nix-installer/) which enables them by default).
+
+   </details>
+
 2. **Register the MCP server** with your client. Example for Cursor (`.cursor/mcp.json`):
+
+   <details open>
+   <summary><strong>With uv</strong></summary>
 
    ```json
    {
@@ -75,6 +92,24 @@ Anything you can do in Neovim, the agent can too. See the [full tool reference](
      }
    }
    ```
+
+   </details>
+
+   <details>
+   <summary><strong>With Nix</strong></summary>
+
+   ```json
+   {
+     "mcpServers": {
+       "nvim-mcp": {
+         "command": "nix",
+         "args": ["run", "github:paulburgess1357/nvim-mcp"]
+       }
+     }
+   }
+   ```
+
+   </details>
 
    For Claude Code, Codex, Claude Desktop, and other clients, see the [configuration guide](config/README.md).
 

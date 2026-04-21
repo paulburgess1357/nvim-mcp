@@ -10,6 +10,8 @@ For a quick overview and getting-started steps, see the [main README](../README.
 
 Add nvim-mcp to your MCP client so it knows how to launch the server.
 
+The examples below use [uv](https://docs.astral.sh/uv/) (`uvx` / `uv run`). If you'd rather use [Nix](https://nixos.org/download/), jump to [Using Nix instead of uv](#using-nix-instead-of-uv) — the command/args change but the structure of every client config stays the same.
+
 <details>
 <summary><strong>Cursor</strong></summary>
 
@@ -132,6 +134,65 @@ args = ["run", "--directory", "<path/to/nvim-mcp>", "nvim-mcp"]
 The command is `uvx`, the argument is `nvim-mcp`. From a local clone, use `uv run --directory <path/to/nvim-mcp> nvim-mcp` instead. Adapt to whatever config format your client expects.
 
 </details>
+
+### Using Nix instead of uv
+
+Requires [Nix](https://nixos.org/download/) with flakes enabled. The first launch fetches and builds the package into the Nix store; subsequent launches are near-instant.
+
+Substitute the `uv` commands above with their Nix equivalents:
+
+| uv | Nix |
+| -- | --- |
+| `uvx nvim-mcp` | `nix run github:paulburgess1357/nvim-mcp` |
+| `uv run --directory <path/to/nvim-mcp> nvim-mcp` | `nix run <path/to/nvim-mcp>` |
+
+<details>
+<summary><strong>Cursor</strong> (Nix)</summary>
+
+```json
+{
+  "mcpServers": {
+    "nvim-mcp": {
+      "command": "nix",
+      "args": ["run", "github:paulburgess1357/nvim-mcp"]
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><strong>Claude Code</strong> (Nix)</summary>
+
+```bash
+claude mcp add nvim-mcp --scope user -- nix run github:paulburgess1357/nvim-mcp
+```
+
+</details>
+
+<details>
+<summary><strong>Codex</strong> (Nix)</summary>
+
+```toml
+[mcp_servers.nvim-mcp]
+command = "nix"
+args = ["run", "github:paulburgess1357/nvim-mcp"]
+```
+
+</details>
+
+Pin to a specific version or commit by appending a ref — e.g. `github:paulburgess1357/nvim-mcp/v0.6.1` or `github:paulburgess1357/nvim-mcp/<commit-sha>`.
+
+#### Install once, launch fast
+
+If you'd rather avoid any per-launch Nix evaluation overhead, install the package into your profile and point your client at the resulting `nvim-mcp` binary:
+
+```bash
+nix profile install github:paulburgess1357/nvim-mcp
+```
+
+Then use `"command": "nvim-mcp"` with no `args` in your MCP config.
 
 ## 2. Add agent rules
 

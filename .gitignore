@@ -64,6 +64,11 @@ venv.bak/
 # uv
 .uv/
 
+# Nix
+result
+result-*
+.direnv/
+
 # mypy / type checkers
 .mypy_cache/
 .dmypy.json
