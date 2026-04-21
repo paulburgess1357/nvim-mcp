@@ -9,7 +9,7 @@ When multiple instances are running, the `connect` tool lists all discovered ses
 <details open>
 <summary>Demo — listing multiple Neovim sessions</summary>
 
-<video src="https://github.com/user-attachments/assets/6c898a42-16c5-4f21-97d8-62f3e66d6d55"></video>
+<video src="https://github.com/user-attachments/assets/c2806b11-cd1c-460c-b375-ff2d35b37579"></video>
 
 </details>
 
@@ -33,6 +33,6 @@ You can also set `NVIM_ADDRESS` in your MCP config to always connect to a specif
 <details open>
 <summary>Demo — connecting to a named socket</summary>
 
-<video src="https://github.com/user-attachments/assets/dec7932d-7f84-4648-8ba1-e6f25b4b9920"></video>
+<video src="https://github.com/user-attachments/assets/2c646fa8-2014-4364-82d5-834f2d146cda"></video>
 
 </details>
