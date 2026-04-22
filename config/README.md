@@ -89,6 +89,25 @@ Add to `claude_desktop_config.json` ([location varies by OS](https://docs.anthro
 ```
 
 </details>
+<details>
+<summary><strong>OpenCode</strong></summary>
+
+Add to ~/.config/opencode/opencode.json (Refer [OpenCode documentation](https://opencode.ai/docs/config/#mcp-servers) as well)
+```json
+{
+  "mcp": {
+      "nvim-mcp": {
+        "type": "local",
+        "command": [ 
+          "uvx",
+          "nvim-mcp"
+        ],
+        "enabled": true
+      }
+  }
+}
+```
+</details>
 
 <details>
 <summary><strong>Codex</strong></summary>
@@ -141,6 +160,7 @@ It produces the appropriate rule file and tells you where to place it:
 | Cursor | `~/.cursor/rules/nvim-mcp.mdc` |
 | Claude | `~/.claude/CLAUDE.md` |
 | Codex  | `~/.codex/AGENTS.md` |
+| OpenCode  | `~/.config/opencode/AGENTS.md` |
 
 The source template is [AGENTS-EXAMPLE.md](AGENTS-EXAMPLE.md) — adjust it to match your workflow.
 
