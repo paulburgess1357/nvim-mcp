@@ -132,6 +132,10 @@ what happened. Wait for me to say "next" before moving on.
 4. Open a vertical split, write a short test for that function, and save both files.
 ```
 
+## Working safely
+
+The tools and agent rules are designed to use non-destructive operations — edits happen in memory, undo history is preserved, and the agent is steered toward buffer operations. But LLMs are non-deterministic, have full access to Neovim's API, and you should assume they will make mistakes. Work in a version-controlled directory.
+
 ## Requirements
 
 - Linux
