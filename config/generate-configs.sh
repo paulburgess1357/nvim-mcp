@@ -76,7 +76,7 @@ show_menu() {
 
 main() {
     show_menu
-    read -rp "Choice [1-4/q]: " choice
+    read -rp "Choice [1-5/q]: " choice
 
     echo ""
     case "$choice" in

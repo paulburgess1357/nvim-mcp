@@ -5,7 +5,7 @@
 
 An [MCP](https://modelcontextprotocol.io/) server that gives AI agents first-class access to your running Neovim session. It connects through Neovim's native msgpack-RPC socket — no plugins required.
 
-Works with Cursor, Claude Code, Codex, and any MCP-compatible client.
+Works with Cursor, Claude Code, Codex, OpenCode, and any MCP-compatible client.
 
 ## What agents can do
 
@@ -112,7 +112,9 @@ nvim-mcp runs via [uv](https://docs.astral.sh/uv/) (recommended) or [Nix](https:
 
    </details>
 
-   For Claude Code, Codex, Claude Desktop, OpenCode  and other clients, see the [configuration guide](config/README.md).
+   <br>
+
+   For Claude Code, Codex, Claude Desktop, OpenCode, and other clients, see the [configuration guide](config/README.md).
 
 3. **Add agent rules — do not skip this.** Without rules, the agent has the tools but doesn't know *when or how* to use them, and behavior will be unreliable. See the [configuration guide](config/README.md#2-add-agent-rules) for setup.
 

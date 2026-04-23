@@ -89,24 +89,24 @@ Add to `claude_desktop_config.json` ([location varies by OS](https://docs.anthro
 ```
 
 </details>
+
 <details>
 <summary><strong>OpenCode</strong></summary>
 
-Add to ~/.config/opencode/opencode.json (Refer [OpenCode documentation](https://opencode.ai/docs/config/#mcp-servers) as well)
-```json
+Add to `opencode.json` (project) or `~/.config/opencode/opencode.json` (global). See also the [OpenCode documentation](https://opencode.ai/docs/config/#mcp-servers).
+
+```jsonc
 {
   "mcp": {
-      "nvim-mcp": {
-        "type": "local",
-        "command": [ 
-          "uvx",
-          "nvim-mcp"
-        ],
-        "enabled": true
-      }
+    "nvim-mcp": {
+      "type": "local",
+      "command": ["uvx", "nvim-mcp"],
+      "enabled": true
+    }
   }
 }
 ```
+
 </details>
 
 <details>
