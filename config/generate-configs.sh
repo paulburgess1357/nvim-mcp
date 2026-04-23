@@ -38,6 +38,15 @@ generate_claude() {
     echo "  Tip: append to an existing file with:  cat $out >> ~/.claude/CLAUDE.md"
 }
 
+generate_opencode() {
+    local out="${1:-$SCRIPT_DIR/AGENTS.md}"
+    cp "$SOURCE" "$out"
+    echo "Generated: $out"
+    echo "  Place at: ~/.config/opencode/AGENTS.md (global)"
+    echo "       or:  <project>/AGENTS.md (per-project)"
+    echo "  Tip: append to an existing file with:  cat $out >> ~/.config/opencode/AGENTS.md"
+}
+
 generate_codex() {
     local out="${1:-$SCRIPT_DIR/AGENTS.md}"
     cp "$SOURCE" "$out"
@@ -56,10 +65,11 @@ show_menu() {
     echo ""
     echo "Which config would you like to generate?"
     echo ""
-    echo "  1) Cursor   (~/.cursor/rules/nvim-mcp.mdc)"
-    echo "  2) Claude   (~/.claude/CLAUDE.md)"
-    echo "  3) Codex    (~/.codex/AGENTS.md)"
-    echo "  4) All"
+    echo "  1) Cursor      (~/.cursor/rules/nvim-mcp.mdc)"
+    echo "  2) Claude      (~/.claude/CLAUDE.md)"
+    echo "  3) Codex       (~/.codex/AGENTS.md)"
+    echo "  4) OpenCode    (~/.config/opencode/AGENTS.md)"
+    echo "  5) All"
     echo "  q) Quit"
     echo ""
 }
@@ -73,12 +83,15 @@ main() {
         1) generate_cursor ;;
         2) generate_claude ;;
         3) generate_codex ;;
-        4)
+        4) generate_opencode ;;
+        5)
             generate_cursor
             echo ""
             generate_claude
             echo ""
             generate_codex
+            echo ""
+            generate_opencode
             ;;
         q|Q) echo "Bye."; exit 0 ;;
         *)
