@@ -1,6 +1,6 @@
 """Lua scripts sent to Neovim via exec_lua for state, diagnostics, editing, and highlights.
 
-Public API: GET_STATE, GET_DIAGNOSTICS, EDIT_BUF, READ_BUF, HIGHLIGHT, EXEC_COMMAND.
+Public API: GET_STATE, GET_STATE_BRIEF, GET_DIAGNOSTICS, EDIT_BUF, READ_BUF, HIGHLIGHT, EXEC_COMMAND.
 Long scripts are composed from private helper snippets (_SEV_NAMES, _REL_PATH, etc.)
 to keep each piece focused and eliminate duplication.
 """
@@ -322,9 +322,9 @@ return {
 """
 
 # ---- GET_STATE_BRIEF ------------------------------------------------------
-# Lightweight editor snapshot: mode, cwd, buffer list, active window (with
-# context lines), and alternate window (minimal, no context). No folds,
-# marks, diagnostics, highlights, indent settings, or other windows.
+# Lightweight editor snapshot: mode, cwd, buffer list, active window and
+# alternate window (both with context lines). No folds, marks, diagnostics,
+# highlights, indent settings, or other windows.
 # Args: context_lines (default 5)
 
 GET_STATE_BRIEF = _REL_PATH + _GET_CONTEXT + _COLLECT_LISTED_BUFFERS + """\
