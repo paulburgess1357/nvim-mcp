@@ -13,11 +13,13 @@ from nvim_mcp.lua import (
     EXEC_COMMAND,
     GET_DIAGNOSTICS,
     GET_STATE,
+    GET_STATE_BRIEF,
     HIGHLIGHT,
     READ_BUF,
 )
 from nvim_mcp.types import (
     ACTIVE_CONTEXT_LINES,
+    BRIEF_CONTEXT_LINES,
     CONNECT_TIMEOUT,
     INACTIVE_CONTEXT_LINES,
     NvimError,
@@ -165,6 +167,11 @@ class NeovimManager:
             self._get_state_sync, raise_on_error=True
         )
 
+    async def get_state_brief(self) -> dict:
+        return await self._with_retry(
+            self._get_state_brief_sync, raise_on_error=True
+        )
+
     async def get_diagnostics(self, file: str | None = None) -> list:
         return await self._with_retry(
             self._get_diagnostics_sync, file, raise_on_error=True
@@ -236,6 +243,10 @@ class NeovimManager:
         return self._nvim.exec_lua(
             GET_STATE, ACTIVE_CONTEXT_LINES, INACTIVE_CONTEXT_LINES
         )
+
+    def _get_state_brief_sync(self) -> dict:
+        assert self._nvim is not None
+        return self._nvim.exec_lua(GET_STATE_BRIEF, BRIEF_CONTEXT_LINES)
 
     def _get_diagnostics_sync(self, file: str | None) -> list:
         assert self._nvim is not None

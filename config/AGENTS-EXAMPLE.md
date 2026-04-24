@@ -5,9 +5,11 @@ You already know Vim — use that knowledge.
 
 ## Rules
 
-**⚠ CRITICAL: Call `get_state` at the START of every turn — before ANY
-nvim-mcp call, file read, or disk edit that touches a Neovim buffer.
-Never carry over cursor position or file identity from a previous turn.**
+**⚠ CRITICAL: Call `get_state_brief` at the START of every turn — before
+any nvim-mcp call, file read, or disk edit that touches a Neovim buffer.
+Never carry over cursor position or file identity from a previous turn.
+Use the full `get_state` only when you need deep context (folds, marks,
+diagnostics, highlights, all windows).**
 
 1. **If a file is in `buffers`, always use buffer tools — not disk.**
    Read with `read_full_buf` (or `read_buf_range` for a slice).

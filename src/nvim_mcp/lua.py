@@ -321,6 +321,50 @@ return {
 }
 """
 
+# ---- GET_STATE_BRIEF ------------------------------------------------------
+# Lightweight editor snapshot: mode, cwd, buffer list, and active window only
+# (file, cursor, filetype, a few context lines). No folds, marks, diagnostics,
+# highlights, or inactive window details.
+# Args: context_lines (default 5)
+
+GET_STATE_BRIEF = _REL_PATH + _GET_CONTEXT + _COLLECT_LISTED_BUFFERS + """\
+local ctx_n = select(1, ...) or 5
+local cur_win = vim.api.nvim_get_current_win()
+local b = vim.api.nvim_win_get_buf(cur_win)
+local cursor = vim.api.nvim_win_get_cursor(cur_win)
+local raw_bt = vim.bo[b].buftype
+local raw_mode = vim.fn.mode()
+local mode_names = {
+    n = "normal", i = "insert", v = "visual", V = "visual_line",
+    ["\\22"] = "visual_block", R = "replace", Rv = "vreplace",
+    c = "command", t = "terminal",
+    s = "select", S = "select_line", ["\\19"] = "select_block",
+    no = "operator_pending", nov = "operator_pending",
+    noV = "operator_pending", ["no\\22"] = "operator_pending",
+    r = "prompt", rm = "prompt", ["r?"] = "prompt",
+}
+local active = {
+    file = rel_path(vim.api.nvim_buf_get_name(b)),
+    filetype = vim.bo[b].filetype,
+    total_lines = vim.api.nvim_buf_line_count(b),
+    modified = vim.bo[b].modified,
+    buftype = raw_bt == "" and "file" or raw_bt,
+    line = cursor[1],
+    col = cursor[2] + 1,
+}
+if ctx_n > 0 then
+    active.context = get_context(b, cursor[1], cursor[1], ctx_n)
+end
+local buffers, modified = collect_listed_buffers()
+return {
+    mode = mode_names[raw_mode] or raw_mode,
+    cwd = cwd,
+    buffers = buffers,
+    modified_buffers = modified,
+    active_window = active,
+}
+"""
+
 # ---- GET_DIAGNOSTICS ------------------------------------------------------
 # Collect LSP diagnostics for a specific file or all loaded buffers.
 # Args: file (optional, nil for all buffers)
