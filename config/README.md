@@ -173,8 +173,9 @@ Because the MCP server runs as a separate process spawned by your client, set th
 | Variable | Default | Description |
 | -------- | ------- | ----------- |
 | `NVIM_ADDRESS` | _(auto-discover)_ | Connect directly to a Neovim instance, skipping discovery. Accepts a Unix socket path or `host:port`. |
-| `NVIM_MCP_ACTIVE_CONTEXT_LINES` | `20` | Lines of context around the cursor in the active window. |
-| `NVIM_MCP_INACTIVE_CONTEXT_LINES` | `20` | Lines of context around the cursor in inactive windows. |
+| `NVIM_MCP_ACTIVE_CONTEXT_LINES` | `20` | Lines of context around the cursor in the active window (`get_state`). |
+| `NVIM_MCP_INACTIVE_CONTEXT_LINES` | `20` | Lines of context around the cursor in inactive windows (`get_state`). |
+| `NVIM_MCP_BRIEF_CONTEXT_LINES` | `13` | Lines of context around the cursor in each window (`get_state_brief`). |
 
 For working with multiple Neovim instances at once, see [multiple instances](../docs/MULTIPLE_INSTANCES.md).
 
