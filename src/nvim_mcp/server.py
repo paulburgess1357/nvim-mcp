@@ -258,6 +258,9 @@ async def get_state_brief() -> dict:
     paths of all listed buffers), modified_buffers, and active_window:
     {file, filetype, total_lines, modified, buftype, line, col, context}.
     context is a short list of numbered lines around the cursor.
+
+    If an alternate window exists, also returns alternate_window with
+    the same fields.
     """
     return await manager.get_state_brief()
 

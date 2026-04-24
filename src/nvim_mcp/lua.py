@@ -322,14 +322,15 @@ return {
 """
 
 # ---- GET_STATE_BRIEF ------------------------------------------------------
-# Lightweight editor snapshot: mode, cwd, buffer list, and active window only
-# (file, cursor, filetype, a few context lines). No folds, marks, diagnostics,
-# highlights, or inactive window details.
+# Lightweight editor snapshot: mode, cwd, buffer list, active window (with
+# context lines), and alternate window (minimal, no context). No folds,
+# marks, diagnostics, highlights, indent settings, or other windows.
 # Args: context_lines (default 5)
 
 GET_STATE_BRIEF = _REL_PATH + _GET_CONTEXT + _COLLECT_LISTED_BUFFERS + """\
 local ctx_n = select(1, ...) or 5
 local cur_win = vim.api.nvim_get_current_win()
+local alt_win = vim.fn.win_getid(vim.fn.winnr('#'))
 local b = vim.api.nvim_win_get_buf(cur_win)
 local cursor = vim.api.nvim_win_get_cursor(cur_win)
 local raw_bt = vim.bo[b].buftype
@@ -355,14 +356,36 @@ local active = {
 if ctx_n > 0 then
     active.context = get_context(b, cursor[1], cursor[1], ctx_n)
 end
+local alternate = nil
+if alt_win ~= 0 and alt_win ~= cur_win then
+    local ab = vim.api.nvim_win_get_buf(alt_win)
+    local ac = vim.api.nvim_win_get_cursor(alt_win)
+    local abt = vim.bo[ab].buftype
+    alternate = {
+        file = rel_path(vim.api.nvim_buf_get_name(ab)),
+        filetype = vim.bo[ab].filetype,
+        total_lines = vim.api.nvim_buf_line_count(ab),
+        modified = vim.bo[ab].modified,
+        buftype = abt == "" and "file" or abt,
+        line = ac[1],
+        col = ac[2] + 1,
+    }
+    if ctx_n > 0 then
+        alternate.context = get_context(ab, ac[1], ac[1], ctx_n)
+    end
+end
 local buffers, modified = collect_listed_buffers()
-return {
+local result = {
     mode = mode_names[raw_mode] or raw_mode,
     cwd = cwd,
     buffers = buffers,
     modified_buffers = modified,
     active_window = active,
 }
+if alternate then
+    result.alternate_window = alternate
+end
+return result
 """
 
 # ---- GET_DIAGNOSTICS ------------------------------------------------------

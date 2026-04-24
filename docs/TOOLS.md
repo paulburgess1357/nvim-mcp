@@ -6,7 +6,7 @@ nvim-mcp exposes the following tools to MCP clients. Agents can also run arbitra
 
 | Tool | Description |
 | ---- | ----------- |
-| `get_state_brief` | Quick snapshot: mode, working directory, listed buffers, and active window (file, cursor, a few context lines). Designed for the start of every turn. |
+| `get_state_brief` | Quick snapshot: mode, working directory, listed buffers, active window and alternate window (file, cursor, a few context lines each). Designed for the start of every turn. |
 | `get_state` | Full session snapshot: everything in `get_state_brief` plus all window details, folds, visual selections, marks, diagnostics summaries, highlights, and indent settings. |
 | `connect` | Discovers running Neovim instances and connects to one. When multiple instances exist, the agent can pick by index, socket path, or terminal PID. |
 
