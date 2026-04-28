@@ -7,6 +7,8 @@ An [MCP](https://modelcontextprotocol.io/) server that gives AI agents first-cla
 
 Works with Cursor, Claude Code, Codex, OpenCode, and any MCP-compatible client.
 
+_Before you connect an agent to Neovim, please read [Working safely](#working-safely)._
+
 ## What agents can do
 
 - **See what you see** — editor mode, working directory, open buffers, window layout, cursor context, folds, selections, marks, and diagnostics.
