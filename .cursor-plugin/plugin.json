@@ -1,0 +1,10 @@
+{
+  "name": "nvim-mcp",
+  "description": "MCP server that gives AI agents first-class access to your running Neovim session via msgpack-RPC",
+  "version": "0.7.0",
+  "author": { "name": "Paul Burgess" },
+  "homepage": "https://github.com/paulburgess1357/nvim-mcp",
+  "repository": "https://github.com/paulburgess1357/nvim-mcp",
+  "license": "MIT",
+  "keywords": ["neovim", "vim", "mcp", "editor", "rpc", "msgpack"]
+}
