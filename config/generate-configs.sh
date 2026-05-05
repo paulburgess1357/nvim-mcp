@@ -5,6 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SOURCE="$SCRIPT_DIR/AGENTS-EXAMPLE.md"
 
 if [[ ! -f "$SOURCE" ]]; then
@@ -12,21 +13,29 @@ if [[ ! -f "$SOURCE" ]]; then
     exit 1
 fi
 
-generate_cursor() {
-    local out="${1:-$SCRIPT_DIR/nvim-mcp.mdc}"
-    {
-        cat <<'FRONTMATTER'
+cursor_rule_content() {
+    cat <<'FRONTMATTER'
 ---
 description: Neovim via nvim-mcp
 alwaysApply: true
 ---
 
 FRONTMATTER
-        cat "$SOURCE"
-    } > "$out"
-    echo "Generated: $out"
-    echo "  Place at: ~/.cursor/rules/nvim-mcp.mdc (global)"
-    echo "       or:  <project>/.cursor/rules/nvim-mcp.mdc (per-project)"
+    cat "$SOURCE"
+}
+
+generate_cursor() {
+    local config_out="$SCRIPT_DIR/nvim-mcp.mdc"
+    local plugin_out="$REPO_ROOT/rules/nvim-mcp.mdc"
+
+    for out in "$config_out" "$plugin_out"; do
+        mkdir -p "$(dirname "$out")"
+        cursor_rule_content > "$out"
+        echo "Generated: $out"
+    done
+    echo "  Local copy: place at ~/.cursor/rules/nvim-mcp.mdc (global)"
+    echo "                    or <project>/.cursor/rules/nvim-mcp.mdc (per-project)"
+    echo "  Plugin copy (tracked in repo): rules/nvim-mcp.mdc — ships with the marketplace plugin"
 }
 
 generate_claude() {
