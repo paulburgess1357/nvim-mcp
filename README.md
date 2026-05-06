@@ -61,6 +61,8 @@ Anything you can do in Neovim, the agent can too. See the [full tool reference](
 
 nvim-mcp runs via [uv](https://docs.astral.sh/uv/) (recommended) or [Nix](https://nixos.org/download/).
 
+> **Cursor users:** A [Marketplace plugin](https://cursor.com/marketplace) is pending review — once available, it installs the MCP server and agent rule together (you can skip to step 4). After install, optionally set the rule to "Always" in **Settings → Rules**.
+
 1. **Install a launcher.**
 
    <details open>

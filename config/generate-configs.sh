@@ -16,7 +16,7 @@ fi
 cursor_rule_content() {
     cat <<'FRONTMATTER'
 ---
-description: Neovim via nvim-mcp
+description: Required workflow for AI agents controlling Neovim through nvim-mcp tools — specifies how to inspect editor state, edit buffers, and navigate windows. Apply whenever the user is editing in Neovim or asks the agent to interact with files via nvim-mcp.
 alwaysApply: true
 ---
 
