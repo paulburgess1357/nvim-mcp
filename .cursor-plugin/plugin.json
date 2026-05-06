@@ -6,5 +6,6 @@
   "homepage": "https://github.com/paulburgess1357/nvim-mcp",
   "repository": "https://github.com/paulburgess1357/nvim-mcp",
   "license": "MIT",
+  "logo": "assets/avatar.png",
   "keywords": ["neovim", "vim", "mcp", "editor", "rpc", "msgpack"]
 }

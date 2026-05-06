@@ -83,7 +83,44 @@ show_menu() {
     echo ""
 }
 
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [FLAG]
+
+Run with no arguments for an interactive menu.
+
+Flags (non-interactive, for use in scripts):
+  --cursor      Generate the Cursor rule (config/nvim-mcp.mdc and rules/nvim-mcp.mdc)
+  --claude      Generate config/CLAUDE.md
+  --codex       Generate config/AGENTS.md (Codex)
+  --opencode    Generate config/AGENTS.md (OpenCode)
+  --all         Generate all of the above
+  -h, --help    Show this help
+EOF
+}
+
 main() {
+    if [[ $# -gt 0 ]]; then
+        case "$1" in
+            --cursor)   generate_cursor ;;
+            --claude)   generate_claude ;;
+            --codex)    generate_codex ;;
+            --opencode) generate_opencode ;;
+            --all)
+                generate_cursor
+                echo ""
+                generate_claude
+                echo ""
+                generate_codex
+                echo ""
+                generate_opencode
+                ;;
+            -h|--help) usage; exit 0 ;;
+            *) echo "Unknown flag: $1" >&2; usage >&2; exit 1 ;;
+        esac
+        return
+    fi
+
     show_menu
     read -rp "Choice [1-5/q]: " choice
 
