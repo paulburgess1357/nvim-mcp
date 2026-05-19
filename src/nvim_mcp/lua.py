@@ -1,6 +1,6 @@
-"""Lua scripts sent to Neovim via exec_lua for state, diagnostics, editing, and highlights.
+"""Lua scripts sent to Neovim via exec_lua for state, diagnostics, editing, highlights, and virtual text.
 
-Public API: GET_STATE, GET_STATE_BRIEF, GET_DIAGNOSTICS, EDIT_BUF, READ_BUF, HIGHLIGHT, EXEC_COMMAND.
+Public API: GET_STATE, GET_STATE_BRIEF, GET_DIAGNOSTICS, EDIT_BUF, READ_BUF, HIGHLIGHT, VIRTUAL_TEXT, EXEC_COMMAND.
 Long scripts are composed from private helper snippets (_SEV_NAMES, _REL_PATH, etc.)
 to keep each piece focused and eliminate duplication.
 """
@@ -138,6 +138,42 @@ local function collect_mcp_highlights(b)
 end
 """
 
+# ---- _COLLECT_MCP_VIRTUAL_TEXT ---------------------------------------------
+# Read MCP virtual text extmarks and emit one entry per extmark.
+_COLLECT_MCP_VIRTUAL_TEXT = """\
+local function collect_mcp_virtual_text(b)
+    local mcp_ns = vim.api.nvim_create_namespace('mcp_virtual_text')
+    local marks = vim.api.nvim_buf_get_extmarks(b, mcp_ns, 0, -1, {details = true})
+    if #marks == 0 then return nil end
+    local items = {}
+    for _, m in ipairs(marks) do
+        local line = m[2] + 1
+        local d = m[4]
+        local position, lines, color
+        if d.virt_text then
+            position = "eol"
+            lines = { d.virt_text[1][1] }
+            color = d.virt_text[1][2] or ""
+        elseif d.virt_lines then
+            position = d.virt_lines_above and "above" or "below"
+            lines = {}
+            for _, chunk_list in ipairs(d.virt_lines) do
+                lines[#lines + 1] = chunk_list[1][1]
+            end
+            local first = d.virt_lines[1] and d.virt_lines[1][1]
+            color = (first and first[2]) or ""
+        end
+        if position then
+            items[#items + 1] = {
+                line = line, position = position,
+                lines = lines, color = color,
+            }
+        end
+    end
+    return items
+end
+"""
+
 # ---- _COLLECT_MARKS --------------------------------------------------------
 # Collect lowercase buffer marks (a-z) with positions.
 _COLLECT_MARKS = """\
@@ -268,6 +304,7 @@ _GET_STATE_HELPERS = (
     + _COLLECT_FOLDS
     + _COLLECT_DIAG_SUMMARY
     + _COLLECT_MCP_HIGHLIGHTS
+    + _COLLECT_MCP_VIRTUAL_TEXT
     + _COLLECT_MARKS
     + _COLLECT_LISTED_BUFFERS
 )
@@ -299,6 +336,7 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     winfo.folds = collect_folds(w, b)
     winfo.diagnostics_summary = collect_diag_summary(b)
     winfo.mcp_highlights = collect_mcp_highlights(b)
+    winfo.mcp_virtual_text = collect_mcp_virtual_text(b)
     winfo.marks = collect_marks(b)
     if is_active then
         table.insert(wins, 1, winfo)
@@ -503,8 +541,30 @@ if sl > el then sl, el = el, sl end
 if sl < 1 then sl = 1 end
 if el > total then el = total end
 
+-- Color must be either a hex literal (#RRGGBB) or a highlight-group
+-- name (e.g. "Comment", "DiagnosticError"). For groups, the resolved
+-- fg becomes the line background, which adapts to the colorscheme.
+local bg_color
+if color:sub(1, 1) == "#" then
+    bg_color = color
+else
+    local ok, hl = pcall(vim.api.nvim_get_hl, 0, {name = color, link = false})
+    if not ok or type(hl) ~= "table" or next(hl) == nil then
+        return {error = "Unknown color: '" .. color .. "'. Use a hex code (e.g. '#RRGGBB') or a highlight group name (e.g. 'Comment', 'DiagnosticError')."}
+    end
+    local fg = hl.fg or hl.foreground
+    local bg = hl.bg or hl.background
+    if fg then
+        bg_color = string.format("#%06x", fg)
+    elseif bg then
+        bg_color = string.format("#%06x", bg)
+    else
+        return {error = "Highlight group '" .. color .. "' has no fg/bg color to use as a line background"}
+    end
+end
+
 local group = "McpHl_" .. color:gsub("[^%w]", "_")
-vim.api.nvim_set_hl(0, group, {bg = color})
+vim.api.nvim_set_hl(0, group, {bg = bg_color})
 
 for line = sl, el do
     vim.api.nvim_buf_set_extmark(b, ns, line - 1, 0, {
@@ -512,6 +572,87 @@ for line = sl, el do
     })
 end
 return {highlighted = el - sl + 1}
+"""
+
+# ---- VIRTUAL_TEXT --------------------------------------------------------
+# Add or clear virtual text annotations in the 'mcp_virtual_text' namespace.
+# Args: file, line, text (list of strings), position ("eol"/"above"/"below"),
+#       color (hl-group name or hex), clear (bool)
+
+VIRTUAL_TEXT = """\
+local file, line, text, position, color, clear = ...
+if type(line) == "userdata" then line = nil end
+if type(text) == "userdata" then text = nil end
+if type(position) == "userdata" then position = nil end
+if type(color) == "userdata" then color = nil end
+if type(clear) == "userdata" then clear = nil end
+
+local b = vim.fn.bufnr(file)
+if b == -1 then
+    return {error = "Buffer not found: " .. tostring(file)}
+end
+
+local ns = vim.api.nvim_create_namespace('mcp_virtual_text')
+
+if clear then
+    vim.api.nvim_buf_clear_namespace(b, ns, 0, -1)
+    return {cleared = true}
+end
+
+if not line or not text or not position then
+    return {error = "line, text, and position are required (pass clear=true to remove)"}
+end
+
+if #text == 0 then
+    return {error = "text must be non-empty"}
+end
+
+if position ~= "eol" and position ~= "above" and position ~= "below" then
+    return {error = "Invalid position: " .. tostring(position) .. ". Must be one of: eol, above, below"}
+end
+
+if position == "eol" and #text ~= 1 then
+    return {error = "EOL virtual text requires exactly one line"}
+end
+
+local total = vim.api.nvim_buf_line_count(b)
+local ln = line
+if ln < 1 then ln = 1 end
+if ln > total then ln = total end
+
+-- Color must be either a hex literal (#RRGGBB) or a highlight-group
+-- name (e.g. "Comment", "DiagnosticError"). Hex creates a group whose
+-- fg is that color; group names are used directly so they adapt to the
+-- colorscheme.
+local hl_group
+if color:sub(1,1) == "#" then
+    hl_group = "McpVt_" .. color:sub(2)
+    vim.api.nvim_set_hl(0, hl_group, {fg = color})
+else
+    local ok, hl = pcall(vim.api.nvim_get_hl, 0, {name = color, link = false})
+    if not ok or type(hl) ~= "table" or next(hl) == nil then
+        return {error = "Unknown color: '" .. color .. "'. Use a hex code (e.g. '#RRGGBB') or a highlight group name (e.g. 'Comment', 'DiagnosticError')."}
+    end
+    hl_group = color
+end
+
+local opts = {}
+if position == "eol" then
+    opts.virt_text = {{text[1], hl_group}}
+    opts.virt_text_pos = "eol"
+else
+    local vlines = {}
+    for _, t in ipairs(text) do
+        vlines[#vlines + 1] = {{t, hl_group}}
+    end
+    opts.virt_lines = vlines
+    if position == "above" then
+        opts.virt_lines_above = true
+    end
+end
+
+vim.api.nvim_buf_set_extmark(b, ns, ln - 1, 0, opts)
+return {added = 1}
 """
 
 # ---- EXEC_COMMAND ---------------------------------------------------------

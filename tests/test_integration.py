@@ -13,7 +13,7 @@ import time
 import pytest
 
 from nvim_mcp.client import NvimClient
-from nvim_mcp.lua import EDIT_BUF, EXEC_COMMAND, GET_DIAGNOSTICS, GET_STATE, HIGHLIGHT, READ_BUF
+from nvim_mcp.lua import EDIT_BUF, EXEC_COMMAND, GET_DIAGNOSTICS, GET_STATE, HIGHLIGHT, READ_BUF, VIRTUAL_TEXT
 from nvim_mcp.types import NvimError
 
 pytestmark = pytest.mark.skipif(
@@ -397,14 +397,14 @@ class TestHighlight:
     def test_highlight_range(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "line1\nline2\nline3")
-        result = client.exec_lua(HIGHLIGHT, p, 1, 2, "Yellow", None)
+        result = client.exec_lua(HIGHLIGHT, p, 1, 2, "#ffff00", None)
         assert "error" not in result
         assert result["highlighted"] == 2
 
     def test_highlight_single_line(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "a\nb\nc")
-        result = client.exec_lua(HIGHLIGHT, p, 2, 2, "DarkGreen", None)
+        result = client.exec_lua(HIGHLIGHT, p, 2, 2, "#006400", None)
         assert "error" not in result
         assert result["highlighted"] == 1
 
@@ -418,7 +418,7 @@ class TestHighlight:
     def test_clear_highlights(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "a\nb\nc")
-        client.exec_lua(HIGHLIGHT, p, 1, 3, "Yellow", None)
+        client.exec_lua(HIGHLIGHT, p, 1, 3, "#ffff00", None)
         result = client.exec_lua(HIGHLIGHT, p, None, None, None, True)
         assert result.get("cleared") is True
 
@@ -426,7 +426,7 @@ class TestHighlight:
         result = client.exec_lua(
             HIGHLIGHT,
             "/tmp/nvim_test_no_such_buffer_ever.txt",
-            1, 1, "Red", None,
+            1, 1, "#ff0000", None,
         )
         assert "error" in result
         assert "not found" in result["error"].lower()
@@ -740,6 +740,30 @@ class TestGetStateExtended:
         assert "context" in active
         assert len(active["context"]) > 0
 
+    def test_state_includes_virtual_text(self, client):
+        path = f"/tmp/nvim_test_state_vt_{os.getpid()}.txt"
+        client.exec_lua(
+            "local f = ...\n"
+            "vim.cmd('noswapfile edit ' .. vim.fn.fnameescape(f))\n"
+            "local b = vim.fn.bufnr(f)\n"
+            "vim.api.nvim_buf_set_lines(b, 0, -1, false, {'a', 'b', 'c'})",
+            path,
+        )
+        client.exec_lua(VIRTUAL_TEXT, path, 2, ["note"], "eol", "Comment", False)
+        client.exec_lua(VIRTUAL_TEXT, path, 3, ["above one", "above two"], "above", "Comment", False)
+        state = client.exec_lua(GET_STATE, 5, 5)
+        active = state["windows"][0]
+        vt = active.get("mcp_virtual_text")
+        assert vt is not None
+        assert len(vt) == 2
+        eol = next(v for v in vt if v["position"] == "eol")
+        assert eol["line"] == 2
+        assert eol["lines"] == ["note"]
+        assert eol["color"] == "Comment"
+        above = next(v for v in vt if v["position"] == "above")
+        assert above["line"] == 3
+        assert above["lines"] == ["above one", "above two"]
+
 
 class TestExecCommandExtended:
     """More EXEC_COMMAND tests: multi-line output, setting/reading variables."""
@@ -805,7 +829,7 @@ class TestHighlightExtended:
         """When start_line > end_line, they are swapped."""
         p = self._unique_path()
         self._setup_buffer(client, p, "a\nb\nc\nd\ne")
-        result = client.exec_lua(HIGHLIGHT, p, 4, 2, "Yellow", None)
+        result = client.exec_lua(HIGHLIGHT, p, 4, 2, "#ffff00", None)
         assert "error" not in result
         assert result["highlighted"] == 3
 
@@ -813,7 +837,7 @@ class TestHighlightExtended:
         """end_line beyond total is clamped."""
         p = self._unique_path()
         self._setup_buffer(client, p, "a\nb\nc")
-        result = client.exec_lua(HIGHLIGHT, p, 1, 999, "Red", None)
+        result = client.exec_lua(HIGHLIGHT, p, 1, 999, "#ff0000", None)
         assert "error" not in result
         assert result["highlighted"] == 3
 
@@ -821,7 +845,7 @@ class TestHighlightExtended:
         """start_line < 1 is clamped to 1."""
         p = self._unique_path()
         self._setup_buffer(client, p, "x\ny\nz")
-        result = client.exec_lua(HIGHLIGHT, p, -5, 2, "Blue", None)
+        result = client.exec_lua(HIGHLIGHT, p, -5, 2, "#0000ff", None)
         assert "error" not in result
         assert result["highlighted"] == 2
 
@@ -848,7 +872,7 @@ class TestHighlightExtended:
         """After clearing, can re-highlight the same range."""
         p = self._unique_path()
         self._setup_buffer(client, p, "one\ntwo")
-        client.exec_lua(HIGHLIGHT, p, 1, 2, "Yellow", None)
+        client.exec_lua(HIGHLIGHT, p, 1, 2, "#ffff00", None)
         clear = client.exec_lua(HIGHLIGHT, p, None, None, None, True)
         assert clear["cleared"] is True
         r2 = client.exec_lua(HIGHLIGHT, p, 1, 1, "#aabbcc", None)
@@ -857,8 +881,241 @@ class TestHighlightExtended:
     def test_highlight_single_line_buffer(self, client):
         p = self._unique_path()
         self._setup_buffer(client, p, "solo line")
-        result = client.exec_lua(HIGHLIGHT, p, 1, 1, "Green", None)
+        result = client.exec_lua(HIGHLIGHT, p, 1, 1, "#00ff00", None)
         assert result["highlighted"] == 1
+
+    def test_highlight_group_name_resolves_to_fg(self, client):
+        """Passing a highlight group name uses the group's fg as the line bg."""
+        p = self._unique_path()
+        self._setup_buffer(client, p, "a\nb\nc")
+        # Set Comment to a known fg so we can verify the resolved bg.
+        client.exec_lua(
+            "vim.api.nvim_set_hl(0, 'Comment', {fg = '#abcdef'})"
+        )
+        result = client.exec_lua(HIGHLIGHT, p, 1, 2, "Comment", None)
+        assert "error" not in result
+        assert result["highlighted"] == 2
+        bg = client.exec_lua(
+            "local g = vim.api.nvim_get_hl(0, {name = 'McpHl_Comment'})\n"
+            "return string.format('#%06x', g.bg)"
+        )
+        assert bg == "#abcdef"
+
+    def test_highlight_linked_group_resolves_through_link(self, client):
+        """A group linked to another resolves to the target's fg."""
+        p = self._unique_path()
+        self._setup_buffer(client, p, "a\nb")
+        client.exec_lua(
+            "vim.api.nvim_set_hl(0, 'McpTestTarget', {fg = '#112233'})\n"
+            "vim.api.nvim_set_hl(0, 'McpTestLinked', {link = 'McpTestTarget'})"
+        )
+        result = client.exec_lua(HIGHLIGHT, p, 1, 1, "McpTestLinked", None)
+        assert "error" not in result
+        bg = client.exec_lua(
+            "local g = vim.api.nvim_get_hl(0, {name = 'McpHl_McpTestLinked'})\n"
+            "return string.format('#%06x', g.bg)"
+        )
+        assert bg == "#112233"
+
+    def test_highlight_unknown_color_errors(self, client):
+        """Bare color names like 'Red' or unknown group names error."""
+        p = self._unique_path()
+        self._setup_buffer(client, p, "a\nb")
+        result = client.exec_lua(HIGHLIGHT, p, 1, 1, "Red", None)
+        assert "error" in result
+        assert "Unknown color" in result["error"]
+        result2 = client.exec_lua(HIGHLIGHT, p, 1, 1, "NotAGroup_xyz", None)
+        assert "error" in result2
+        assert "Unknown color" in result2["error"]
+
+    def test_highlight_group_without_color_errors(self, client):
+        """A highlight group with attrs but no fg/bg returns an explicit error."""
+        p = self._unique_path()
+        self._setup_buffer(client, p, "x")
+        client.exec_lua(
+            "vim.api.nvim_set_hl(0, 'McpBoldOnly', {bold = true, italic = true})"
+        )
+        result = client.exec_lua(HIGHLIGHT, p, 1, 1, "McpBoldOnly", None)
+        assert "error" in result
+        assert "no fg/bg" in result["error"]
+
+
+class TestVirtualText:
+    """Test VIRTUAL_TEXT Lua against a real Neovim."""
+
+    _buf_counter = 0
+
+    @pytest.fixture()
+    def client(self, nvim_socket):
+        c = NvimClient.connect(nvim_socket)
+        yield c
+        c.close()
+
+    def _unique_path(self):
+        TestVirtualText._buf_counter += 1
+        return f"/tmp/nvim_test_vt_{os.getpid()}_{TestVirtualText._buf_counter}.txt"
+
+    def _setup_buffer(self, client, path, content):
+        client.exec_lua(
+            "local f, c = ...\n"
+            "vim.cmd('noswapfile edit ' .. vim.fn.fnameescape(f))\n"
+            "local b = vim.fn.bufnr(f)\n"
+            "vim.api.nvim_buf_set_lines(b, 0, -1, false, vim.split(c, '\\n', {plain=true}))",
+            path, content,
+        )
+
+    def _extmarks(self, client, path):
+        return client.exec_lua(
+            "local f = ...\n"
+            "local b = vim.fn.bufnr(f)\n"
+            "local ns = vim.api.nvim_create_namespace('mcp_virtual_text')\n"
+            "return vim.api.nvim_buf_get_extmarks(b, ns, 0, -1, {details = true})",
+            path,
+        )
+
+    def test_eol_single_line(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "a\nb\nc")
+        result = client.exec_lua(VIRTUAL_TEXT, p, 2, ["hello"], "eol", "Comment", False)
+        assert result == {"added": 1}
+        marks = self._extmarks(client, p)
+        assert len(marks) == 1
+        details = marks[0][3]
+        assert details["virt_text"][0][0] == "hello"
+        assert details["virt_text_pos"] == "eol"
+
+    def test_above_multi_line(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "x\ny\nz")
+        result = client.exec_lua(
+            VIRTUAL_TEXT, p, 2, ["note one", "note two"], "above", "Comment", False,
+        )
+        assert result == {"added": 1}
+        marks = self._extmarks(client, p)
+        details = marks[0][3]
+        assert details["virt_lines_above"] is True
+        assert len(details["virt_lines"]) == 2
+        assert details["virt_lines"][0][0][0] == "note one"
+        assert details["virt_lines"][1][0][0] == "note two"
+
+    def test_below_single_line(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "x\ny\nz")
+        result = client.exec_lua(
+            VIRTUAL_TEXT, p, 2, ["below note"], "below", "Comment", False,
+        )
+        assert result == {"added": 1}
+        marks = self._extmarks(client, p)
+        details = marks[0][3]
+        assert not details.get("virt_lines_above")
+        assert details["virt_lines"][0][0][0] == "below note"
+
+    def test_eol_rejects_multi_line(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "a\nb")
+        result = client.exec_lua(
+            VIRTUAL_TEXT, p, 1, ["one", "two"], "eol", "Comment", False,
+        )
+        assert "error" in result
+        assert "EOL" in result["error"]
+
+    def test_empty_text_rejected(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "a")
+        result = client.exec_lua(VIRTUAL_TEXT, p, 1, {}, "eol", "Comment", False)
+        assert "error" in result
+        assert "non-empty" in result["error"]
+
+    def test_invalid_position_rejected(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "a")
+        result = client.exec_lua(
+            VIRTUAL_TEXT, p, 1, ["hi"], "bogus", "Comment", False,
+        )
+        assert "error" in result
+        assert "Invalid position" in result["error"]
+
+    def test_hex_color_creates_hl_group(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "line")
+        result = client.exec_lua(
+            VIRTUAL_TEXT, p, 1, ["hex test"], "eol", "#7a9ad4", False,
+        )
+        assert result == {"added": 1}
+        marks = self._extmarks(client, p)
+        hl = marks[0][3]["virt_text"][0][1]
+        assert hl == "McpVt_7a9ad4"
+
+    def test_clear_removes_all(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "a\nb")
+        client.exec_lua(VIRTUAL_TEXT, p, 1, ["one"], "eol", "Comment", False)
+        client.exec_lua(VIRTUAL_TEXT, p, 2, ["two"], "above", "Comment", False)
+        assert len(self._extmarks(client, p)) == 2
+        result = client.exec_lua(VIRTUAL_TEXT, p, None, None, None, None, True)
+        assert result == {"cleared": True}
+        assert len(self._extmarks(client, p)) == 0
+
+    def test_buffer_not_found(self, client):
+        result = client.exec_lua(
+            VIRTUAL_TEXT,
+            "/tmp/nvim_test_no_such_vt_buffer.txt",
+            1, ["x"], "eol", "Comment", False,
+        )
+        assert "error" in result
+        assert "not found" in result["error"].lower()
+
+    def test_line_clamped_above_total(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "only line")
+        result = client.exec_lua(
+            VIRTUAL_TEXT, p, 999, ["clamped"], "eol", "Comment", False,
+        )
+        assert result == {"added": 1}
+        marks = self._extmarks(client, p)
+        assert marks[0][2] == 0  # line clamped to 1 (0-indexed = 0)
+
+    def test_line_clamped_below_one(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "a\nb\nc")
+        result = client.exec_lua(
+            VIRTUAL_TEXT, p, -5, ["clamped"], "eol", "Comment", False,
+        )
+        assert result == {"added": 1}
+        marks = self._extmarks(client, p)
+        assert marks[0][2] == 0  # line clamped to 1 (0-indexed = 0)
+
+    def test_does_not_modify_buffer_content(self, client):
+        p = self._unique_path()
+        self._setup_buffer(client, p, "hello\nworld")
+        client.exec_lua(VIRTUAL_TEXT, p, 1, ["note"], "eol", "Comment", False)
+        buf = client.exec_lua(READ_BUF, p, None, None)
+        lines = [l.split(": ", 1)[1] for l in buf["lines"]]
+        assert lines == ["hello", "world"]
+
+    def test_unknown_color_errors(self, client):
+        """Bare color names like 'Red' or unknown group names error."""
+        p = self._unique_path()
+        self._setup_buffer(client, p, "a")
+        result = client.exec_lua(VIRTUAL_TEXT, p, 1, ["x"], "eol", "Red", False)
+        assert "error" in result
+        assert "Unknown color" in result["error"]
+        result2 = client.exec_lua(
+            VIRTUAL_TEXT, p, 1, ["x"], "eol", "NotAGroup_xyz", False,
+        )
+        assert "error" in result2
+        assert "Unknown color" in result2["error"]
+
+    def test_diagnostic_group_name_works(self, client):
+        """Built-in diagnostic groups are accepted and used directly."""
+        p = self._unique_path()
+        self._setup_buffer(client, p, "line")
+        result = client.exec_lua(
+            VIRTUAL_TEXT, p, 1, ["err"], "eol", "DiagnosticError", False,
+        )
+        assert result == {"added": 1}
+        marks = self._extmarks(client, p)
+        assert marks[0][3]["virt_text"][0][1] == "DiagnosticError"
 
 
 class TestBufEditExtended:

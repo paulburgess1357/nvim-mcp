@@ -44,3 +44,15 @@ Highlights use Neovim extmarks under the `mcp_highlight` namespace.
 | `highlight_range` | Annotate a line range with a colored highlight. |
 | `highlight_ranges` | Annotate multiple ranges at once. |
 | `clear_highlights` | Remove all MCP highlights from a buffer. |
+
+## Virtual text
+
+Virtual text uses Neovim extmarks under the `mcp_virtual_text` namespace.
+Annotations are visual only — buffer content is unchanged and nothing is
+persisted to disk.
+
+| Tool | Description |
+| ---- | ----------- |
+| `add_virtual_text` | Attach a text annotation to a buffer line (end-of-line, above, or below). |
+| `add_virtual_texts` | Attach multiple annotations at once. |
+| `clear_virtual_texts` | Remove all MCP virtual text from a buffer. |

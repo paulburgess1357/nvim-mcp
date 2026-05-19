@@ -15,7 +15,7 @@ _Before you connect an agent to Neovim, please read [Working safely](#working-sa
 - **Run any Vim command** — `:w`, `:e`, `:vsplit`, macros, or anything else you could type at the command line.
 - **Send keystrokes** — navigate, enter insert mode, trigger mappings.
 - **Query LSP diagnostics** — errors, warnings, and hints across one buffer or the whole session.
-- **Annotate code with highlights** — colored extmarks to draw your attention to specific lines.
+- **Annotate code with highlights and virtual text** — colored line highlights and inline/above/below text notes that never touch the buffer's real content.
 - **Work with multiple instances** — auto-discovers running sessions and connects to the right one. See [multiple instances](docs/MULTIPLE_INSTANCES.md).
 
 Anything you can do in Neovim, the agent can too. See the [full tool reference](docs/TOOLS.md) for details.

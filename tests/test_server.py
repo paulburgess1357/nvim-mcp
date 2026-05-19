@@ -1,7 +1,8 @@
 """Unit tests for nvim_mcp.server — MCP tool wrappers and main entry point.
 
 Covers: all tool functions delegate correctly to NeovimManager,
-highlight_ranges batching logic and edge cases, main() invocation.
+highlight_ranges and add_virtual_texts batching logic and edge cases,
+main() invocation.
 """
 
 from __future__ import annotations
@@ -12,7 +13,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from nvim_mcp.server import (
+    add_virtual_text,
+    add_virtual_texts,
     clear_highlights,
+    clear_virtual_texts,
     connect,
     find_and_replace_buf,
     get_all_diagnostics,
@@ -41,6 +45,8 @@ def mock_manager():
     mgr.read_buffer = AsyncMock(return_value={"lines": ["1: hi"], "total_lines": 1})
     mgr.highlight_buffer = AsyncMock(return_value={"highlighted": 3})
     mgr.clear_highlights = AsyncMock(return_value={"cleared": True})
+    mgr.add_virtual_text = AsyncMock(return_value={"added": 1})
+    mgr.clear_virtual_texts = AsyncMock(return_value={"cleared": True})
     with patch("nvim_mcp.server.manager", mgr):
         yield mgr
 
@@ -147,13 +153,13 @@ class TestHighlightRangeTool:
     def test_delegates_with_default_color(self, mock_manager):
         asyncio.run(highlight_range("e.py", 1, 5))
         mock_manager.highlight_buffer.assert_awaited_once_with(
-            file="e.py", start_line=1, end_line=5, color="#3b4048",
+            file="e.py", start_line=1, end_line=5, color="Comment",
         )
 
     def test_delegates_with_custom_color(self, mock_manager):
-        asyncio.run(highlight_range("e.py", 1, 5, color="Red"))
+        asyncio.run(highlight_range("e.py", 1, 5, color="DiagnosticError"))
         mock_manager.highlight_buffer.assert_awaited_once_with(
-            file="e.py", start_line=1, end_line=5, color="Red",
+            file="e.py", start_line=1, end_line=5, color="DiagnosticError",
         )
 
 
@@ -172,7 +178,7 @@ class TestHighlightRangesTool:
             "file": "a.py", "start_line": 1, "end_line": 3, "color": "#ff0000",
         }
         assert calls[1].kwargs == {
-            "file": "b.py", "start_line": 10, "end_line": 12, "color": "#3b4048",
+            "file": "b.py", "start_line": 10, "end_line": 12, "color": "Comment",
         }
 
     def test_empty_list(self, mock_manager):
@@ -182,14 +188,14 @@ class TestHighlightRangesTool:
 
     def test_single_highlight(self, mock_manager):
         result = asyncio.run(highlight_ranges([
-            {"file": "f.py", "start_line": 5, "end_line": 5, "color": "Yellow"},
+            {"file": "f.py", "start_line": 5, "end_line": 5, "color": "DiagnosticWarn"},
         ]))
         assert len(result) == 1
 
     def test_uses_default_color_when_missing(self, mock_manager):
         asyncio.run(highlight_ranges([{"file": "x.py", "start_line": 1, "end_line": 1}]))
         call = mock_manager.highlight_buffer.await_args_list[0]
-        assert call.kwargs["color"] == "#3b4048"
+        assert call.kwargs["color"] == "Comment"
 
     def test_propagates_error_from_manager(self, mock_manager):
         mock_manager.highlight_buffer = AsyncMock(
@@ -216,6 +222,107 @@ class TestClearHighlightsTool:
     def test_delegates(self, mock_manager):
         result = asyncio.run(clear_highlights("f.py"))
         mock_manager.clear_highlights.assert_awaited_once_with(file="f.py")
+        assert result == {"cleared": True}
+
+
+class TestAddVirtualTextTool:
+    def test_delegates_with_defaults(self, mock_manager):
+        result = asyncio.run(add_virtual_text("a.py", 5, ["hi"]))
+        mock_manager.add_virtual_text.assert_awaited_once_with(
+            file="a.py", line=5, text=["hi"], position="eol", color="Comment",
+        )
+        assert result == {"added": 1}
+
+    def test_delegates_with_all_args(self, mock_manager):
+        asyncio.run(
+            add_virtual_text("a.py", 5, ["a", "b"], position="above", color="#ff0000")
+        )
+        mock_manager.add_virtual_text.assert_awaited_once_with(
+            file="a.py", line=5, text=["a", "b"], position="above", color="#ff0000",
+        )
+
+
+class TestAddVirtualTextsTool:
+    def test_batches_multiple_items(self, mock_manager):
+        items = [
+            {"file": "a.py", "line": 1, "text": ["one"], "color": "#ff0000"},
+            {"file": "b.py", "line": 10, "text": ["two", "three"], "position": "above"},
+        ]
+        result = asyncio.run(add_virtual_texts(items))
+        assert len(result) == 2
+        assert mock_manager.add_virtual_text.await_count == 2
+        calls = mock_manager.add_virtual_text.await_args_list
+        assert calls[0].kwargs == {
+            "file": "a.py", "line": 1, "text": ["one"],
+            "position": "eol", "color": "#ff0000",
+        }
+        assert calls[1].kwargs == {
+            "file": "b.py", "line": 10, "text": ["two", "three"],
+            "position": "above", "color": "Comment",
+        }
+
+    def test_empty_list(self, mock_manager):
+        result = asyncio.run(add_virtual_texts([]))
+        assert result == []
+        mock_manager.add_virtual_text.assert_not_awaited()
+
+    def test_uses_default_position_and_color(self, mock_manager):
+        asyncio.run(add_virtual_texts([{"file": "x.py", "line": 1, "text": ["hi"]}]))
+        call = mock_manager.add_virtual_text.await_args_list[0]
+        assert call.kwargs["position"] == "eol"
+        assert call.kwargs["color"] == "Comment"
+
+    def test_propagates_error_from_manager(self, mock_manager):
+        mock_manager.add_virtual_text = AsyncMock(
+            side_effect=RuntimeError("Buffer not found"),
+        )
+        with pytest.raises(RuntimeError, match="Buffer not found"):
+            asyncio.run(add_virtual_texts([
+                {"file": "gone.py", "line": 1, "text": ["x"]},
+            ]))
+
+    def test_partial_failure_stops_iteration(self, mock_manager):
+        mock_manager.add_virtual_text = AsyncMock(
+            side_effect=[{"added": 1}, RuntimeError("fail")],
+        )
+        with pytest.raises(RuntimeError):
+            asyncio.run(add_virtual_texts([
+                {"file": "a.py", "line": 1, "text": ["x"]},
+                {"file": "b.py", "line": 1, "text": ["y"]},
+            ]))
+        assert mock_manager.add_virtual_text.await_count == 2
+
+
+class TestAddVirtualTextsValidation:
+    def test_missing_file_key(self, mock_manager):
+        with pytest.raises(ValueError, match="missing required.*file"):
+            asyncio.run(add_virtual_texts([{"line": 1, "text": ["x"]}]))
+
+    def test_missing_line_key(self, mock_manager):
+        with pytest.raises(ValueError, match="missing required.*line"):
+            asyncio.run(add_virtual_texts([{"file": "a.py", "text": ["x"]}]))
+
+    def test_missing_text_key(self, mock_manager):
+        with pytest.raises(ValueError, match="missing required.*text"):
+            asyncio.run(add_virtual_texts([{"file": "a.py", "line": 1}]))
+
+    def test_missing_multiple_keys(self, mock_manager):
+        with pytest.raises(ValueError, match="missing required"):
+            asyncio.run(add_virtual_texts([{}]))
+
+    def test_error_includes_index(self, mock_manager):
+        with pytest.raises(ValueError, match=r"items\[1\]"):
+            asyncio.run(add_virtual_texts([
+                {"file": "a.py", "line": 1, "text": ["x"]},
+                {"file": "b.py"},
+            ]))
+        assert mock_manager.add_virtual_text.await_count == 1
+
+
+class TestClearVirtualTextsTool:
+    def test_delegates(self, mock_manager):
+        result = asyncio.run(clear_virtual_texts("f.py"))
+        mock_manager.clear_virtual_texts.assert_awaited_once_with(file="f.py")
         assert result == {"cleared": True}
 
 

@@ -16,6 +16,7 @@ from nvim_mcp.lua import (
     GET_STATE_BRIEF,
     HIGHLIGHT,
     READ_BUF,
+    VIRTUAL_TEXT,
 )
 from nvim_mcp.types import (
     ACTIVE_CONTEXT_LINES,
@@ -204,7 +205,7 @@ class NeovimManager:
         file: str,
         start_line: int,
         end_line: int,
-        color: str = "Yellow",
+        color: str = "Comment",
     ) -> dict:
         return await self._with_retry(
             self._highlight_buf_sync, file, start_line, end_line, color,
@@ -214,6 +215,24 @@ class NeovimManager:
     async def clear_highlights(self, file: str) -> dict:
         return await self._with_retry(
             self._clear_highlights_sync, file, raise_on_error=True,
+        )
+
+    async def add_virtual_text(
+        self,
+        file: str,
+        line: int,
+        text: list[str],
+        position: str = "eol",
+        color: str = "Comment",
+    ) -> dict:
+        return await self._with_retry(
+            self._add_vt_sync, file, line, text, position, color,
+            raise_on_error=True,
+        )
+
+    async def clear_virtual_texts(self, file: str) -> dict:
+        return await self._with_retry(
+            self._clear_vt_sync, file, raise_on_error=True,
         )
 
     # -- Sync helpers --------------------------------------------------------
@@ -288,6 +307,25 @@ class NeovimManager:
     def _clear_highlights_sync(self, file: str) -> dict:
         assert self._nvim is not None
         return self._nvim.exec_lua(HIGHLIGHT, file, None, None, None, True)
+
+    def _add_vt_sync(
+        self,
+        file: str,
+        line: int,
+        text: list[str],
+        position: str,
+        color: str,
+    ) -> dict:
+        assert self._nvim is not None
+        return self._nvim.exec_lua(
+            VIRTUAL_TEXT, file, line, text, position, color, False
+        )
+
+    def _clear_vt_sync(self, file: str) -> dict:
+        assert self._nvim is not None
+        return self._nvim.exec_lua(
+            VIRTUAL_TEXT, file, None, None, None, None, True
+        )
 
     # -- Connection helpers --------------------------------------------------
 

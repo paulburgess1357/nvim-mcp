@@ -221,7 +221,8 @@ async def get_state() -> dict:
 
     Use `get_state_brief` for quick orientation at the start of a turn.
     Use this when you need the complete picture: all window details,
-    folds, marks, diagnostics summaries, highlights, and indent settings.
+    folds, marks, diagnostics summaries, highlights, virtual text, and
+    indent settings.
 
     Returns: mode (normal/insert/visual/etc.), cwd, buffers (relative
     paths of all listed buffers), modified_buffers, current_tab, tab_count.
@@ -240,6 +241,7 @@ async def get_state() -> dict:
       - diagnostics_summary: {error, warning, info, hint} counts.
       - marks: list of {mark, line, col} for lowercase (a-z) buffer marks.
       - mcp_highlights: list of {start_line, end_line, color} for active highlights.
+      - mcp_virtual_text: list of {line, position, lines, color} for active virtual text.
     """
     return await manager.get_state()
 
@@ -251,8 +253,8 @@ async def get_state_brief() -> dict:
 
     Use this at the start of each turn to see what the user is working
     on. Use `get_state` instead when you need the full picture: all
-    windows, folds, marks, diagnostics summaries, highlights, and
-    indent settings.
+    windows, folds, marks, diagnostics summaries, highlights, virtual
+    text, and indent settings.
 
     Returns: mode (normal/insert/visual/etc.), cwd, buffers (relative
     paths of all listed buffers), modified_buffers, and active_window:
@@ -270,7 +272,7 @@ async def highlight_range(
     file: str,
     start_line: int,
     end_line: int,
-    color: str = "#3b4048",
+    color: str = "Comment",
 ) -> dict:
     """Add a colored line highlight to a Neovim buffer. This is a visual
     annotation only — it does not modify buffer content and is not
@@ -282,14 +284,18 @@ async def highlight_range(
     start_line: first line to highlight (1-indexed, inclusive).
     end_line: last line to highlight (1-indexed, inclusive). Out-of-range
       values are clamped. If start_line > end_line they are swapped.
-    color: any hex color (e.g. "#3b4048") or Neovim color name
-      (e.g. "DarkGreen"). Defaults to "#3b4048".
+    color: a hex color (e.g. "#3b4048") or a Neovim highlight group name
+      (e.g. "Comment", "DiagnosticError"). For groups, the resolved
+      foreground color becomes the line background — so highlights adapt
+      to the user's colorscheme. Defaults to "Comment". Unknown names
+      (including bare color literals like "Red") return an error.
 
     Use this for a single highlight. Use `highlight_ranges` to apply
     multiple highlights in one call. Use `clear_highlights` to remove
     all highlights from a buffer.
 
-    Returns {highlighted} with the number of lines highlighted.
+    Returns {highlighted} with the number of lines highlighted, or
+    {error} with a message on failure.
     """
     return await manager.highlight_buffer(
         file=file,
@@ -313,8 +319,11 @@ async def highlight_ranges(
         The buffer must be open in Neovim.
       - start_line: first line (1-indexed, inclusive).
       - end_line: last line (1-indexed, inclusive).
-      - color (optional): hex color or Neovim color name. Defaults to
-        "#3b4048". Out-of-range lines are clamped.
+      - color (optional): hex color (e.g. "#5f3a3a") or Neovim highlight
+        group name (e.g. "Comment", "DiagnosticError"). For groups, the
+        resolved foreground color becomes the line background. Defaults
+        to "Comment". Unknown names (including bare color literals like
+        "Red") return an error. Out-of-range lines are clamped.
 
     Use this when you need to highlight several ranges at once (possibly
     across different files). Use `highlight_range` for a single range.
@@ -324,7 +333,7 @@ async def highlight_ranges(
     input. Raises an error if any item is missing required keys.
 
     Example: [{"file": "foo.py", "start_line": 1, "end_line": 3,
-               "color": "#5f3a3a"},
+               "color": "DiagnosticError"},
               {"file": "foo.py", "start_line": 10, "end_line": 12}]
     """
     required_keys = ("file", "start_line", "end_line")
@@ -340,7 +349,7 @@ async def highlight_ranges(
                 file=h["file"],
                 start_line=h["start_line"],
                 end_line=h["end_line"],
-                color=h.get("color", "#3b4048"),
+                color=h.get("color", "Comment"),
             )
         )
     return results
@@ -361,6 +370,116 @@ async def clear_highlights(file: str) -> dict:
     Use `highlight_range` or `highlight_ranges` to add highlights.
     """
     return await manager.clear_highlights(file=file)
+
+
+@mcp.tool()
+async def add_virtual_text(
+    file: str,
+    line: int,
+    text: list[str],
+    position: str = "eol",
+    color: str = "Comment",
+) -> dict:
+    """Add a virtual text annotation to a Neovim buffer. Visual only —
+    the buffer's actual content is unchanged and nothing is written to
+    disk. Annotations stack; multiple calls accumulate.
+
+    file: path relative to Neovim's cwd (as shown in `get_state` buffers).
+      The buffer must already be open in Neovim; returns an error otherwise.
+    line: 1-indexed anchor line. Out-of-range values are clamped.
+    text: list of strings, one per virtual line. Must be non-empty.
+      When position is "eol", exactly one item is allowed.
+    position: where the annotation appears relative to the anchor line.
+      One of "eol" (after end of line), "above" (between previous and
+      anchor lines), or "below" (between anchor and next lines).
+      Defaults to "eol".
+    color: a Neovim highlight group name (e.g. "Comment",
+      "DiagnosticError") or a hex color (e.g. "#7a9ad4"). Defaults to
+      "Comment", which adapts to the user's colorscheme. Unknown names
+      (including bare color literals like "Red") return an error.
+
+    Use this for a single annotation. Use `add_virtual_texts` for
+    multiple annotations in one call. Use `clear_virtual_texts` to
+    remove all MCP virtual text from a buffer.
+
+    Returns {added: 1} on success, or {error} with a message on failure.
+    """
+    return await manager.add_virtual_text(
+        file=file, line=line, text=text, position=position, color=color,
+    )
+
+
+@mcp.tool()
+async def add_virtual_texts(
+    items: list[dict],
+) -> list[dict]:
+    """Add multiple virtual text annotations to Neovim buffers in a
+    single call. Visual only — buffer content is unchanged. Annotations
+    stack; calling this adds more without removing previous ones.
+
+    items: a list of dicts. Each dict requires:
+      - file: path relative to Neovim's cwd. Buffer must be open.
+      - line: 1-indexed anchor line. Out-of-range values are clamped.
+      - text: list of strings, one per virtual line. Non-empty.
+        EOL position requires exactly one item.
+      And optionally:
+      - position: "eol" (default), "above", or "below".
+      - color: hex color (e.g. "#7a9ad4") or Neovim highlight group
+        name (e.g. "Comment", "DiagnosticError"). Defaults to "Comment".
+        Unknown names (including bare color literals like "Red") return
+        an error.
+
+    Use this when you need to add several annotations at once (possibly
+    across different files). Use `add_virtual_text` for a single
+    annotation. Use `clear_virtual_texts` to remove all MCP virtual
+    text from a buffer.
+
+    Returns a list of {added: 1} results in input order. Raises a
+    ValueError if any item is missing a required key. Iteration is
+    sequential: if item N fails validation or the manager raises,
+    items 0..N-1 have already been applied (call `clear_virtual_texts`
+    to roll back).
+
+    Example: [{"file": "foo.py", "line": 10, "text": ["this is the bug"]},
+              {"file": "foo.py", "line": 20, "text": ["note one", "note two"],
+               "position": "above", "color": "DiagnosticInfo"}]
+    """
+    required_keys = ("file", "line", "text")
+    results = []
+    for idx, item in enumerate(items):
+        missing = [k for k in required_keys if k not in item]
+        if missing:
+            raise ValueError(
+                f"items[{idx}] missing required key(s): {', '.join(missing)}"
+            )
+        results.append(
+            await manager.add_virtual_text(
+                file=item["file"],
+                line=item["line"],
+                text=item["text"],
+                position=item.get("position", "eol"),
+                color=item.get("color", "Comment"),
+            )
+        )
+    return results
+
+
+@mcp.tool()
+async def clear_virtual_texts(file: str) -> dict:
+    """Remove all MCP virtual text annotations from a Neovim buffer.
+    Only removes annotations added by `add_virtual_text` or
+    `add_virtual_texts` — does not affect highlights, LSP virtual
+    text, inlay hints, or other plugins. Does not modify buffer
+    content. Safe to call even if no annotations are present
+    (returns {cleared: true} either way).
+
+    file: path relative to Neovim's cwd (as shown in `get_state` buffers).
+      The buffer must already be open in Neovim; returns an error otherwise.
+
+    Use this to clean up after an annotation workflow. Use
+    `add_virtual_text` or `add_virtual_texts` to add annotations.
+    """
+    return await manager.clear_virtual_texts(file=file)
 
 
 def main() -> None:

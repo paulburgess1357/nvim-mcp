@@ -3,7 +3,8 @@
 Covers: types (_env_int, _format_rpc_error, NvimError, NvimInstance),
 client (NvimClient), discovery (socket scanning, probing, PID matching),
 manager (NeovimManager: connection, commands, state, diagnostics,
-buffer operations, highlights, reconnection, retry logic).
+buffer operations, highlights, virtual text, reconnection, retry
+logic).
 """
 
 from __future__ import annotations
@@ -939,7 +940,7 @@ class TestHighlightBuffer:
         mock_nvim.exec_lua.return_value = {"highlighted": 1}
         asyncio.run(mgr.highlight_buffer("a.py", 1, 1))
         call_args = mock_nvim.exec_lua.call_args[0]
-        assert call_args[4] == "Yellow"
+        assert call_args[4] == "Comment"
 
     def test_raises_when_no_instances(self):
         mgr = NeovimManager()
@@ -971,6 +972,74 @@ class TestClearHighlights:
         with patch("nvim_mcp.manager.find_all_sockets", return_value=[]):
             with pytest.raises(RuntimeError):
                 asyncio.run(mgr.clear_highlights("a.py"))
+
+
+# ===================================================================
+# NeovimManager — add_virtual_text / clear_virtual_texts
+# ===================================================================
+
+class TestAddVirtualText:
+    def test_returns_result(self):
+        mgr, mock_nvim = _connected_manager()
+        mock_nvim.exec_lua.return_value = {"added": 1}
+        result = asyncio.run(
+            mgr.add_virtual_text("a.py", 5, ["hi"], "eol", "Comment")
+        )
+        assert result == {"added": 1}
+
+    def test_default_position_and_color(self):
+        mgr, mock_nvim = _connected_manager()
+        mock_nvim.exec_lua.return_value = {"added": 1}
+        asyncio.run(mgr.add_virtual_text("a.py", 5, ["hi"]))
+        call_args = mock_nvim.exec_lua.call_args[0]
+        assert call_args[1] == "a.py"
+        assert call_args[2] == 5
+        assert call_args[3] == ["hi"]
+        assert call_args[4] == "eol"
+        assert call_args[5] == "Comment"
+        assert call_args[6] is False
+
+    def test_above_position(self):
+        mgr, mock_nvim = _connected_manager()
+        mock_nvim.exec_lua.return_value = {"added": 1}
+        asyncio.run(
+            mgr.add_virtual_text("a.py", 5, ["a", "b"], "above", "#ff0000")
+        )
+        call_args = mock_nvim.exec_lua.call_args[0]
+        assert call_args[4] == "above"
+        assert call_args[5] == "#ff0000"
+
+    def test_raises_when_no_instances(self):
+        mgr = NeovimManager()
+        with patch("nvim_mcp.manager.find_all_sockets", return_value=[]):
+            with pytest.raises(RuntimeError):
+                asyncio.run(mgr.add_virtual_text("a.py", 1, ["x"]))
+
+
+class TestClearVirtualTexts:
+    def test_returns_result(self):
+        mgr, mock_nvim = _connected_manager()
+        mock_nvim.exec_lua.return_value = {"cleared": True}
+        result = asyncio.run(mgr.clear_virtual_texts("a.py"))
+        assert result == {"cleared": True}
+
+    def test_passes_correct_lua_args(self):
+        mgr, mock_nvim = _connected_manager()
+        mock_nvim.exec_lua.return_value = {"cleared": True}
+        asyncio.run(mgr.clear_virtual_texts("test.py"))
+        call_args = mock_nvim.exec_lua.call_args[0]
+        assert call_args[1] == "test.py"
+        assert call_args[2] is None
+        assert call_args[3] is None
+        assert call_args[4] is None
+        assert call_args[5] is None
+        assert call_args[6] is True
+
+    def test_raises_when_no_instances(self):
+        mgr = NeovimManager()
+        with patch("nvim_mcp.manager.find_all_sockets", return_value=[]):
+            with pytest.raises(RuntimeError):
+                asyncio.run(mgr.clear_virtual_texts("a.py"))
 
 
 # ===================================================================
@@ -1788,6 +1857,27 @@ class TestSyncHelpers:
         mock_nvim.exec_lua.return_value = {"cleared": True}
         result = mgr._clear_highlights_sync("f.py")
         assert result == {"cleared": True}
+
+    def test_add_vt_sync(self):
+        mgr, mock_nvim = _connected_manager()
+        mock_nvim.exec_lua.return_value = {"added": 1}
+        result = mgr._add_vt_sync("a.py", 3, ["hi"], "eol", "Comment")
+        assert result == {"added": 1}
+        call_args = mock_nvim.exec_lua.call_args[0]
+        assert call_args[1] == "a.py"
+        assert call_args[2] == 3
+        assert call_args[3] == ["hi"]
+        assert call_args[4] == "eol"
+        assert call_args[5] == "Comment"
+        assert call_args[6] is False
+
+    def test_clear_vt_sync(self):
+        mgr, mock_nvim = _connected_manager()
+        mock_nvim.exec_lua.return_value = {"cleared": True}
+        result = mgr._clear_vt_sync("a.py")
+        assert result == {"cleared": True}
+        call_args = mock_nvim.exec_lua.call_args[0]
+        assert call_args[6] is True
 
 
 # ===================================================================

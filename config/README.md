@@ -218,3 +218,18 @@ end, {})
 ```
 
 Then `:McpClearHighlights` removes all MCP highlights from every buffer.
+
+## 5. Clearing virtual text manually
+
+`clear_virtual_texts` removes MCP virtual text via the tool, but you can also clear it directly in Neovim. Add this to your Neovim config:
+
+```lua
+vim.api.nvim_create_user_command('McpClearVirtualTexts', function()
+  local ns = vim.api.nvim_create_namespace('mcp_virtual_text')
+  for _, b in ipairs(vim.api.nvim_list_bufs()) do
+    vim.api.nvim_buf_clear_namespace(b, ns, 0, -1)
+  end
+end, {})
+```
+
+Then `:McpClearVirtualTexts` removes all MCP virtual text from every buffer.

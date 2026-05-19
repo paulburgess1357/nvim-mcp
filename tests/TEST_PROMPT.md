@@ -350,66 +350,132 @@ and produce a final report.
 
 - `highlight_range("tests/fixtures/calculator.py", 1, 3)`
 - `send_command("b calculator.py")`
-- Call `get_state`. Verify `mcp_highlights` exists with the default
-  color `#3b4048`.
+- Call `get_state`. Verify `mcp_highlights` exists. The default color
+  is `Comment`, so the recorded color will be whatever the colorscheme
+  resolves Comment's foreground to (a hex string).
 - `clear_highlights("tests/fixtures/calculator.py")`
 
-## 10 — Terminal
+## 10 — Virtual text
 
-### 10.1 Open a terminal
+### 10.1 Single virtual text annotation (EOL)
+
+- `add_virtual_text("tests/fixtures/calculator.py", 4, ["explains add"])`
+- Make `calculator.py` visible: `send_command("b calculator.py")`
+- Call `get_state`. Verify `mcp_virtual_text` on the active window
+  contains an entry with `line: 4`, `position: "eol"`,
+  `lines: ["explains add"]`, `color: "Comment"`.
+
+### 10.2 Above-line annotation (multi-line)
+
+- `add_virtual_text("tests/fixtures/calculator.py", 9, ["note one", "note two"], "above", "DiagnosticInfo")`
+- Call `get_state`. Verify a second entry with `line: 9`,
+  `position: "above"`, `lines: ["note one", "note two"]`,
+  `color: "DiagnosticInfo"`.
+
+### 10.3 Batched virtual text (across files)
+
+- `add_virtual_texts([{"file": "tests/fixtures/notes.md", "line": 1, "text": ["heading note"], "color": "DiagnosticHint"}, {"file": "tests/fixtures/broken.py", "line": 5, "text": ["below note"], "position": "below", "color": "DiagnosticError"}])`
+- `send_command("b notes.md")`
+- Call `get_state`. Verify `mcp_virtual_text` on the `notes.md` window
+  contains the heading note.
+
+### 10.4 Virtual text persists after buffer switch
+
+- `send_command("b broken.py")`
+- `send_command("b calculator.py")`
+- Call `get_state`. Verify the two `calculator.py` annotations from
+  10.1 and 10.2 are still present.
+
+### 10.5 Clear virtual text (single file)
+
+- `clear_virtual_texts("tests/fixtures/calculator.py")`
+- Call `get_state`. Verify `mcp_virtual_text` is absent or empty for
+  `calculator.py`.
+- `send_command("b notes.md")`
+- Call `get_state`. Verify `mcp_virtual_text` on `notes.md` still
+  exists (clearing one file doesn't affect another).
+
+### 10.6 Clear remaining virtual text
+
+- `clear_virtual_texts("tests/fixtures/notes.md")`
+- `clear_virtual_texts("tests/fixtures/broken.py")`
+
+### 10.7 Virtual text with hex color
+
+- `add_virtual_text("tests/fixtures/calculator.py", 1, ["hex test"], "eol", "#7a9ad4")`
+- `send_command("b calculator.py")`
+- Call `get_state`. Verify `mcp_virtual_text` exists; the entry's
+  `color` will be reported as `McpVt_7a9ad4` (Neovim creates this
+  synthetic highlight group on the fly for hex inputs).
+- `clear_virtual_texts("tests/fixtures/calculator.py")`
+
+### 10.8 Clearing virtual text does not affect highlights
+
+- `highlight_range("tests/fixtures/calculator.py", 1, 2, "#5f3a3a")`
+- `add_virtual_text("tests/fixtures/calculator.py", 1, ["note"])`
+- Call `get_state`. Verify both `mcp_highlights` and
+  `mcp_virtual_text` are present.
+- `clear_virtual_texts("tests/fixtures/calculator.py")`
+- Call `get_state`. Verify `mcp_virtual_text` is gone but
+  `mcp_highlights` still has the range.
+- `clear_highlights("tests/fixtures/calculator.py")` to tidy up.
+
+## 11 — Terminal
+
+### 11.1 Open a terminal
 
 - `send_command("terminal")`
 - Call `get_state`. Verify the active window has `buftype: "terminal"`.
 - Verify mode is "normal" or "terminal".
 
-### 10.2 Switch away from terminal
+### 11.2 Switch away from terminal
 
 - `send_command("wincmd p")` or `send_command("b calculator.py")`
 - Call `get_state`. Verify active window is back to a file buffer
   with `buftype: "file"`.
 
-### 10.3 Close the terminal
+### 11.3 Close the terminal
 
 - Close the terminal buffer (use `bd!` with the terminal buffer name
   from `get_state`).
 - Call `get_state`. Verify no window has `buftype: "terminal"`.
 
-## 11 — Context, Cursor & Marks
+## 12 — Context, Cursor & Marks
 
-### 11.1 Cursor position
+### 12.1 Cursor position
 
 - `send_command("b calculator.py")`
 - `send_keys("17G5|")` — go to line 17, column 5.
 - Call `get_state`. Verify active window has `line: 17`, `col: 5`.
 
-### 11.2 Context lines
+### 12.2 Context lines
 
 - Call `get_state`. Verify `context` on the active window is an array
   of strings containing lines around line 17 with line number prefixes
   (e.g. `"17: ..."`, `"16: ..."`, `"18: ..."`).
 
-### 11.3 Context around visual selection
+### 12.3 Context around visual selection
 
 - `send_keys("5GV10G")` — visual line select lines 5–10.
 - Call `get_state`. Verify `context` includes lines around the
   selection range (before line 5 and after line 10).
 - `send_keys("\x1b")` — Escape.
 
-### 11.4 Folds
+### 12.4 Folds
 
 - `send_keys("ggVGzf")` — select all and fold.
 - Call `get_state`. Verify `folds` contains at least one range.
 - `send_keys("zR")` — open all folds.
 - Call `get_state`. Verify `folds` is absent or empty.
 
-### 11.5 Set and verify marks
+### 12.5 Set and verify marks
 
 - `send_keys("10Gma")` — go to line 10, set mark `a`.
 - `send_keys("20Gmb")` — go to line 20, set mark `b`.
 - Call `get_state`. Verify `marks` on the active window contains
   entries for mark `a` (line 10) and mark `b` (line 20).
 
-### 11.6 Indent settings differ between filetypes
+### 12.6 Indent settings differ between filetypes
 
 - `send_command("b calculator.py")`
 - Call `get_state`. Record `indent` for the `calculator.py` window.
@@ -418,42 +484,49 @@ and produce a final report.
 - Note: these may or may not differ depending on Neovim config, but
   verify the `indent` field is present and well-formed on both.
 
-## 12 — send_command with list
+## 13 — send_command with list
 
-### 12.1 Multiple commands in one call
+### 13.1 Multiple commands in one call
 
 - `send_command(["e tests/fixtures/calculator.py", "vsplit tests/fixtures/notes.md"])`
 - Call `get_state`. Verify 2 windows: one showing `calculator.py`, one
   showing `notes.md`.
 - `send_command("only")`
 
-### 12.2 List return value
+### 13.2 List return value
 
 - The return value of `send_command` with a list should itself be a
   list of results (one per command). Verify the return has 2 entries.
 
-## 13 — Error Handling
+## 14 — Error Handling
 
-### 13.1 Invalid ex command
+### 14.1 Invalid ex command
 
 - `send_command("thiscommanddoesnotexist")`
 - Verify an error is returned (not a crash).
 
-### 13.2 Read range beyond end of file
+### 14.2 Read range beyond end of file
 
 - `read_buf_range("tests/fixtures/calculator.py", 100, 200)`
 - Verify either an error or an empty result (not a crash).
 
-### 13.3 Highlight on non-open buffer
+### 14.3 Highlight on non-open buffer
 
 - `send_command("bd tests/fixtures/broken.py")`
 - `highlight_range("tests/fixtures/broken.py", 1, 5, "#5f3a3a")`
 - Verify either an error or graceful handling.
 - Re-open: `send_command("e tests/fixtures/broken.py")`
 
-## 14 — Empty Buffer
+### 14.4 Virtual text on non-open buffer
 
-### 14.1 New empty buffer
+- `send_command("bd tests/fixtures/broken.py")`
+- `add_virtual_text("tests/fixtures/broken.py", 1, ["note"])`
+- Verify either an error or graceful handling.
+- Re-open: `send_command("e tests/fixtures/broken.py")`
+
+## 15 — Empty Buffer
+
+### 15.1 New empty buffer
 
 - `send_command("enew")`
 - Call `get_state`. Verify the active window has total_lines of 1
@@ -463,7 +536,7 @@ and produce a final report.
   (or single empty line) content.
 - `send_command("bd")`
 
-## 15 — Multi-file Edit Workflow
+## 16 — Multi-file Edit Workflow
 
 This tests a realistic developer workflow end-to-end.
 
@@ -481,14 +554,18 @@ This tests a realistic developer workflow end-to-end.
 7. Call `get_state`. Verify both files are in `modified_buffers`.
 8. Highlight the edited regions:
    `highlight_ranges([{"file": "tests/fixtures/calculator.py", "start_line": 16, "end_line": 18, "color": "#3a5f3a"}, {"file": "tests/fixtures/notes.md", "start_line": 15, "end_line": 18, "color": "#3a5f3a"}])`
-9. Verify highlights on both windows via `get_state`.
-10. Clear all highlights:
+9. Annotate the edits with virtual text:
+   `add_virtual_texts([{"file": "tests/fixtures/calculator.py", "line": 16, "text": ["added docstring"], "color": "DiagnosticInfo"}, {"file": "tests/fixtures/notes.md", "line": 15, "text": ["added section"], "color": "DiagnosticInfo"}])`
+10. Verify highlights and virtual text on both windows via `get_state`.
+11. Clear all annotations:
     `clear_highlights("tests/fixtures/calculator.py")`
     `clear_highlights("tests/fixtures/notes.md")`
-11. Undo both edits:
+    `clear_virtual_texts("tests/fixtures/calculator.py")`
+    `clear_virtual_texts("tests/fixtures/notes.md")`
+12. Undo both edits:
     - `send_command("b calculator.py")`, `send_keys("u")`
     - `send_command("b notes.md")`, `send_keys("u")`
-12. Call `get_state`. Verify `modified_buffers` is empty.
+13. Call `get_state`. Verify `modified_buffers` is empty.
 
 ## Cleanup
 
@@ -518,9 +595,12 @@ Setup   | calculator.py has 41 lines               | PASS
 7.4     | visual block mode detected                | PASS
 9.3     | cross-file highlights applied             | PASS
 9.5     | clear one file doesn't affect another     | PASS
-11.5    | marks a and b at correct lines            | PASS
-12.1    | command list opens split                  | PASS
-13.1    | invalid command returns error             | PASS
+10.3    | cross-file virtual text applied           | PASS
+10.5    | clear vt one file doesn't affect another  | PASS
+10.8    | clearing vt leaves highlights intact      | PASS
+12.5    | marks a and b at correct lines            | PASS
+13.1    | command list opens split                  | PASS
+14.1    | invalid command returns error             | PASS
 ...
 ```
 

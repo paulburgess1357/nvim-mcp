@@ -9,7 +9,7 @@ You already know Vim — use that knowledge.
 any nvim-mcp call, file read, or disk edit that touches a Neovim buffer.
 Never carry over cursor position or file identity from a previous turn.
 Use the full `get_state` only when you need deep context (folds, marks,
-diagnostics, highlights, all windows).**
+diagnostics, highlights, virtual text, all windows).**
 
 1. **If a file is in `buffers`, always use buffer tools — not disk.**
    Read with `read_full_buf` (or `read_buf_range` for a slice).
@@ -28,16 +28,51 @@ diagnostics, highlights, all windows).**
    (`wincmd p` or target it directly), run the split there, then
    switch back if needed.
 
-## Highlight colors
+## Colors
 
-When using `highlight_range`, use these colors:
+Both `highlight_range` and `add_virtual_text` accept the same two
+color formats:
 
-- Focus (default): `#3b4048`
-- Errors / problems: `#5f3a3a`
-- Good / additions: `#3a5f3a`
-- Info / context: `#2e4a6e`
-- Warnings / caution: `#6b5a2a`
-- Suggestions / notes: `#4a3a5f`
+- Hex code (e.g. `#3b4048`) — used as-is.
+- Highlight group name (e.g. `Comment`, `DiagnosticError`) — adapts
+  to the user's colorscheme. For `highlight_range`, the group's
+  foreground color is used as the line background. For
+  `add_virtual_text`, the group is used directly.
+
+Unknown names (including bare color literals like `Red` or
+`darkgreen`) return an error. Use either a hex code or a valid
+highlight group.
+
+### Recommended highlight groups
+
+When using `highlight_range` or `add_virtual_text`, prefer these
+groups so the visual semantics stay consistent and adapt to the
+colorscheme:
+
+- Notes / context (default for both tools): `Comment`
+- Errors / problems: `DiagnosticError`
+- Warnings / caution: `DiagnosticWarn`
+- Info / context: `DiagnosticInfo`
+- Hints / suggestions: `DiagnosticHint`
+- Good / success: `DiagnosticOk`
+
+Pass the group name as the `color` argument
+(e.g. `color="DiagnosticError"`). Both tools default to `Comment`
+when no color is provided.
+
+## Virtual text
+
+**⚠ MANDATORY: every `add_virtual_text` / `add_virtual_texts` text item
+MUST start with `※ ` (U+203B, "Reference Mark"). No exceptions, every
+call, every item. Example: `text=["※ swap if reversed"]`.**
+
+- Keep each annotation **single-line and short**. No `\n`. One item per
+  `text` list. If you need more, place several short annotations on
+  adjacent lines instead.
+- `color`: default `Comment`. Use a `Diagnostic*` group only when
+  semantics demand it.
+- `position`: default `"eol"`. Use `"above"` / `"below"` only when the
+  annotated line is already long.
 
 ## Multi-instance
 
