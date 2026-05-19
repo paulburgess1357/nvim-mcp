@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nvim-mcp"
-version = "0.7.1"
+version = "1.0.0"
 description = "MCP server for AI-assisted control of Neovim via msgpack-RPC"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,7 +13,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Paul Burgess" }]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
