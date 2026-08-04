@@ -1,12 +1,14 @@
-"""FastMCP entry point: tools for Neovim discovery, control, and state."""
+"""MCP server entry point: tools for Neovim discovery, control, and state."""
 
 from __future__ import annotations
 
-from mcp.server.fastmcp import FastMCP
+from importlib.metadata import version
+
+from mcp.server.mcpserver import MCPServer
 
 from nvim_mcp.manager import NeovimManager
 
-mcp = FastMCP("nvim-mcp")
+mcp = MCPServer("nvim-mcp", version=version("nvim-mcp"))
 manager = NeovimManager()
 
 
