@@ -16,6 +16,7 @@ from nvim_mcp.lua import (
     GET_STATE_BRIEF,
     HIGHLIGHT,
     READ_BUF,
+    SEND_TO_TERMINAL,
     VIRTUAL_TEXT,
 )
 from nvim_mcp.types import (
@@ -163,6 +164,17 @@ class NeovimManager:
             self._run_keys_sync, keys, raise_on_error=True
         )
 
+    async def send_to_terminal(
+        self,
+        text: str,
+        terminal: str | int | None = None,
+        submit: bool = False,
+    ) -> dict:
+        return await self._with_retry(
+            self._send_to_terminal_sync, terminal, text, submit,
+            raise_on_error=True,
+        )
+
     async def get_state(self) -> dict:
         return await self._with_retry(
             self._get_state_sync, raise_on_error=True
@@ -256,6 +268,15 @@ class NeovimManager:
         assert self._nvim is not None
         self._nvim.input("<Esc>" + keys)
         return {"sent": keys}
+
+    def _send_to_terminal_sync(
+        self,
+        terminal: str | int | None,
+        text: str,
+        submit: bool,
+    ) -> dict:
+        assert self._nvim is not None
+        return self._nvim.exec_lua(SEND_TO_TERMINAL, terminal, text, submit)
 
     def _get_state_sync(self) -> dict:
         assert self._nvim is not None

@@ -28,6 +28,14 @@ All buffer edits happen in memory. Nothing is written to disk until the buffer i
 | `send_command` | Run one or more ex commands (`:w`, `:e path`, `:wincmd v`, etc.). |
 | `send_keys` | Send keystrokes to Neovim. Escape is prepended automatically. |
 
+## Terminals
+
+Open terminal buffers are listed under `terminals` in `get_state_brief` and `get_state`.
+
+| Tool | Description |
+| ---- | ----------- |
+| `send_to_terminal` | Type text into a terminal's running program via its job channel — no focus or mode changes. By default the text is left at the prompt for the user to review and submit; `submit=true` presses Enter so the command runs. |
+
 ## Diagnostics
 
 | Tool | Description |

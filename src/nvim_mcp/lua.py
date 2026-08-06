@@ -1,6 +1,6 @@
 """Lua scripts sent to Neovim via exec_lua for state, diagnostics, editing, highlights, and virtual text.
 
-Public API: GET_STATE, GET_STATE_BRIEF, GET_DIAGNOSTICS, EDIT_BUF, READ_BUF, HIGHLIGHT, VIRTUAL_TEXT, EXEC_COMMAND.
+Public API: GET_STATE, GET_STATE_BRIEF, GET_DIAGNOSTICS, EDIT_BUF, READ_BUF, HIGHLIGHT, VIRTUAL_TEXT, EXEC_COMMAND, SEND_TO_TERMINAL.
 Long scripts are composed from private helper snippets (_SEV_NAMES, _REL_PATH, etc.)
 to keep each piece focused and eliminate duplication.
 """
@@ -189,6 +189,25 @@ local function collect_marks(b)
 end
 """
 
+# ---- _COLLECT_TERMINALS ----------------------------------------------------
+# Gather all loaded terminal buffers: buffer number, name, visibility.
+# Used by the state snapshots and by SEND_TO_TERMINAL. Requires _REL_PATH.
+_COLLECT_TERMINALS = """\
+local function collect_terminals()
+    local terms = {}
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].buftype == "terminal" then
+            terms[#terms + 1] = {
+                buf = b,
+                name = rel_path(vim.api.nvim_buf_get_name(b)),
+                visible = vim.fn.bufwinid(b) ~= -1,
+            }
+        end
+    end
+    return terms
+end
+"""
+
 # ---- _BUILD_WINDOW_INFO ----------------------------------------------------
 # Build the metadata table for a single window (file, cursor, indent, etc.).
 _BUILD_WINDOW_INFO = """\
@@ -292,7 +311,7 @@ end
 
 # ---- GET_STATE ------------------------------------------------------------
 # Full editor snapshot: mode, windows (with context, folds, diagnostics,
-# highlights, marks), buffer list, and tab info.
+# highlights, marks), buffer list, terminal list, and tab info.
 # Args: active_context_lines, inactive_context_lines
 
 _GET_STATE_HELPERS = (
@@ -307,6 +326,7 @@ _GET_STATE_HELPERS = (
     + _COLLECT_MCP_VIRTUAL_TEXT
     + _COLLECT_MARKS
     + _COLLECT_LISTED_BUFFERS
+    + _COLLECT_TERMINALS
 )
 
 GET_STATE = _GET_STATE_HELPERS + """\
@@ -348,6 +368,7 @@ for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     end
 end
 local buffers, modified = collect_listed_buffers()
+local terminals = collect_terminals()
 return {
     mode = cur_mode,
     cwd = cwd,
@@ -356,16 +377,17 @@ return {
     current_tab = vim.fn.tabpagenr(),
     tab_count = vim.fn.tabpagenr('$'),
     windows = wins,
+    terminals = #terminals > 0 and terminals or nil,
 }
 """
 
 # ---- GET_STATE_BRIEF ------------------------------------------------------
-# Lightweight editor snapshot: mode, cwd, buffer list, active window and
-# alternate window (both with context lines). No folds, marks, diagnostics,
-# highlights, indent settings, or other windows.
+# Lightweight editor snapshot: mode, cwd, buffer list, terminal list,
+# active window and alternate window (both with context lines). No folds,
+# marks, diagnostics, highlights, indent settings, or other windows.
 # Args: context_lines (default 5)
 
-GET_STATE_BRIEF = _REL_PATH + _GET_CONTEXT + _COLLECT_LISTED_BUFFERS + """\
+GET_STATE_BRIEF = _REL_PATH + _GET_CONTEXT + _COLLECT_LISTED_BUFFERS + _COLLECT_TERMINALS + """\
 local ctx_n = select(1, ...) or 5
 local cur_win = vim.api.nvim_get_current_win()
 local alt_win = vim.fn.win_getid(vim.fn.winnr('#'))
@@ -422,6 +444,10 @@ local result = {
 }
 if alternate then
     result.alternate_window = alternate
+end
+local terminals = collect_terminals()
+if #terminals > 0 then
+    result.terminals = terminals
 end
 return result
 """
@@ -653,6 +679,101 @@ end
 
 vim.api.nvim_buf_set_extmark(b, ns, ln - 1, 0, opts)
 return {added = 1}
+"""
+
+# ---- SEND_TO_TERMINAL -----------------------------------------------------
+# Write text to a terminal buffer's job channel (the running program's
+# stdin). Resolves the target by buffer number or name; auto-selects when
+# exactly one terminal exists. With submit, appends a carriage return so
+# the program executes the input; without, strips trailing newlines so the
+# text sits unexecuted at the prompt.
+# Args: terminal (number | string | nil), text, submit (bool)
+
+SEND_TO_TERMINAL = _REL_PATH + _COLLECT_TERMINALS + """\
+local terminal, text, submit = ...
+if type(terminal) == "userdata" then terminal = nil end
+if type(submit) == "userdata" then submit = nil end
+
+local terms = collect_terminals()
+if #terms == 0 then
+    return {error = "No terminal buffers found"}
+end
+
+local target
+if terminal == nil then
+    if #terms == 1 then
+        target = terms[1]
+    else
+        return {
+            error = "Multiple terminals found. Specify one with the terminal argument (buffer number or name).",
+            terminals = terms,
+        }
+    end
+elseif type(terminal) == "number" then
+    for _, t in ipairs(terms) do
+        if t.buf == terminal then
+            target = t
+            break
+        end
+    end
+    if not target then
+        return {
+            error = "No terminal buffer with number " .. terminal,
+            terminals = terms,
+        }
+    end
+else
+    local matches = {}
+    for _, t in ipairs(terms) do
+        if t.name == terminal then
+            matches = {t}
+            break
+        elseif t.name:find(terminal, 1, true) then
+            matches[#matches + 1] = t
+        end
+    end
+    if #matches == 1 then
+        target = matches[1]
+    elseif #matches == 0 then
+        return {
+            error = "No terminal buffer matching '" .. terminal .. "'",
+            terminals = terms,
+        }
+    else
+        return {
+            error = "Terminal name '" .. terminal .. "' is ambiguous",
+            terminals = matches,
+        }
+    end
+end
+
+local chan = vim.bo[target.buf].channel
+if not chan or chan == 0 then
+    return {error = "The job in terminal '" .. target.name .. "' has exited"}
+end
+
+local payload = text
+if submit then
+    local last = payload:sub(-1)
+    if last ~= "\\n" and last ~= "\\r" then
+        payload = payload .. "\\r"
+    end
+else
+    payload = payload:gsub("[\\r\\n]+$", "")
+end
+
+-- The channel id can outlive the job (the "[Process exited]" state), so
+-- a dead terminal surfaces here as a send error, not as channel == 0.
+local ok, err = pcall(vim.api.nvim_chan_send, chan, payload)
+if not ok then
+    return {error = "Could not send to terminal '" .. target.name .. "': " .. tostring(err)}
+end
+return {
+    sent = #payload,
+    terminal = target.name,
+    buf = target.buf,
+    submitted = submit and true or false,
+}
 """
 
 # ---- EXEC_COMMAND ---------------------------------------------------------

@@ -89,6 +89,50 @@ async def send_keys(keys: str) -> dict:
 
 
 @mcp.tool()
+async def send_to_terminal(
+    text: str,
+    terminal: str | int | None = None,
+    submit: bool = False,
+) -> dict:
+    """Type text into a terminal buffer's running program (usually a shell)
+    by writing to its job channel. This is a mutation tool — the text
+    reaches the program's stdin as if typed, but is not executed unless
+    submit is true.
+
+    text: the text to send, raw. In most shells an embedded newline acts
+      like pressing Enter, so multi-line text may execute line by line.
+      When submit is false, trailing newlines are stripped so nothing
+      runs by accident.
+    terminal: which terminal to target — a buffer number or buffer name,
+      as listed under `terminals` in `get_state` / `get_state_brief`.
+      Names match exactly first, then by unique substring. Omit it when
+      exactly one terminal exists; with several open, omitting it
+      returns an error listing them.
+    submit: false (default) leaves the text at the prompt for the user
+      to review and press Enter. true appends a carriage return so the
+      program executes it immediately. NEVER pass submit=true unless
+      the user has explicitly asked for the command to be run — "put",
+      "paste", "type", or "prepare" a command always means
+      submit=false. Suggesting a command yourself is not permission to
+      run it. When in doubt, use submit=false and let the user press
+      Enter.
+
+    Use this whenever text needs to go into a terminal. It works
+    regardless of focus, mode, or visibility and never moves the user's
+    cursor — unlike `send_keys`, which requires focusing the terminal
+    and juggling modes. Terminal buffers cannot be edited with the
+    buffer tools.
+
+    Returns {sent, terminal, buf, submitted} on success — sent is the
+    byte count actually written. On failure returns {error}, including
+    a `terminals` list when the target was missing or ambiguous.
+    """
+    return await manager.send_to_terminal(
+        text=text, terminal=terminal, submit=submit
+    )
+
+
+@mcp.tool()
 async def get_all_diagnostics() -> list:
     """Get LSP diagnostics from all open buffers in Neovim. Read-only.
 
@@ -227,7 +271,10 @@ async def get_state() -> dict:
     indent settings.
 
     Returns: mode (normal/insert/visual/etc.), cwd, buffers (relative
-    paths of all listed buffers), modified_buffers, current_tab, tab_count.
+    paths of all listed buffers), modified_buffers, current_tab, tab_count,
+    and terminals — a list of open terminal buffers as {buf, name,
+    visible}, present only when at least one exists (targets for
+    `send_to_terminal`).
 
     windows — list of visible windows (current tab only). The active
     window is always first, the alternate window (previous) is second.
@@ -264,7 +311,8 @@ async def get_state_brief() -> dict:
     context is a short list of numbered lines around the cursor.
 
     If an alternate window exists, also returns alternate_window with
-    the same fields.
+    the same fields. When terminal buffers exist, returns terminals — a
+    list of {buf, name, visible} (targets for `send_to_terminal`).
     """
     return await manager.get_state_brief()
 

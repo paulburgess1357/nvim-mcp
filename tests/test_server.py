@@ -28,6 +28,7 @@ from nvim_mcp.server import (
     read_full_buf,
     send_command,
     send_keys,
+    send_to_terminal,
     write_full_buf,
 )
 
@@ -39,6 +40,9 @@ def mock_manager():
     mgr.connect = AsyncMock(return_value={"connected": "/tmp/s"})
     mgr.send_command = AsyncMock(return_value={"output": "ok"})
     mgr.send_keys = AsyncMock(return_value={"sent": "dd"})
+    mgr.send_to_terminal = AsyncMock(
+        return_value={"sent": 5, "terminal": "Term1", "buf": 3, "submitted": False}
+    )
     mgr.get_state = AsyncMock(return_value={"mode": "normal"})
     mgr.get_diagnostics = AsyncMock(return_value=[])
     mgr.edit_buffer = AsyncMock(return_value={"total_lines": 5})
@@ -96,6 +100,27 @@ class TestSendKeysTool:
         result = asyncio.run(send_keys("gg"))
         mock_manager.send_keys.assert_awaited_once_with("gg")
         assert result == {"sent": "dd"}
+
+
+class TestSendToTerminalTool:
+    def test_delegates_with_defaults(self, mock_manager):
+        result = asyncio.run(send_to_terminal("ls -la"))
+        mock_manager.send_to_terminal.assert_awaited_once_with(
+            text="ls -la", terminal=None, submit=False,
+        )
+        assert result["submitted"] is False
+
+    def test_delegates_with_terminal_name(self, mock_manager):
+        asyncio.run(send_to_terminal("ls", terminal="Term1"))
+        mock_manager.send_to_terminal.assert_awaited_once_with(
+            text="ls", terminal="Term1", submit=False,
+        )
+
+    def test_delegates_with_buffer_number_and_submit(self, mock_manager):
+        asyncio.run(send_to_terminal("make test", terminal=7, submit=True))
+        mock_manager.send_to_terminal.assert_awaited_once_with(
+            text="make test", terminal=7, submit=True,
+        )
 
 
 class TestGetStateTool:

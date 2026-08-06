@@ -13,7 +13,7 @@ import time
 import pytest
 
 from nvim_mcp.client import NvimClient
-from nvim_mcp.lua import EDIT_BUF, EXEC_COMMAND, GET_DIAGNOSTICS, GET_STATE, HIGHLIGHT, READ_BUF, VIRTUAL_TEXT
+from nvim_mcp.lua import EDIT_BUF, EXEC_COMMAND, GET_DIAGNOSTICS, GET_STATE, GET_STATE_BRIEF, HIGHLIGHT, READ_BUF, SEND_TO_TERMINAL, VIRTUAL_TEXT
 from nvim_mcp.types import NvimError
 
 pytestmark = pytest.mark.skipif(
@@ -1221,3 +1221,158 @@ class TestBufEditExtended:
         result = client.exec_lua(EDIT_BUF, p, "MARKER", "line1\nline2\nline3")
         assert "error" not in result
         assert result["lines_added"] >= 3
+
+
+class TestSendToTerminal:
+    """SEND_TO_TERMINAL against real terminal buffers with live jobs."""
+
+    @pytest.fixture()
+    def client(self, nvim_socket):
+        c = NvimClient.connect(nvim_socket)
+        yield c
+        c.close()
+
+    def _open_term(self, client, cmd="cat"):
+        """Open :terminal running *cmd* and return its buffer number."""
+        return client.exec_lua(
+            "local cmd = ...\n"
+            "vim.cmd('terminal ' .. cmd)\n"
+            "return vim.api.nvim_get_current_buf()",
+            cmd,
+        )
+
+    def _buf_lines(self, client, buf):
+        return client.exec_lua(
+            "local b = ...\n"
+            "return vim.api.nvim_buf_get_lines(b, 0, -1, false)",
+            buf,
+        )
+
+    def _wait_for_text(self, client, buf, needle, timeout=5.0):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if any(needle in line for line in self._buf_lines(client, buf)):
+                return
+            time.sleep(0.05)
+        pytest.fail(f"'{needle}' did not appear in terminal buffer {buf}")
+
+    def test_no_terminal_errors(self, client):
+        result = client.exec_lua(SEND_TO_TERMINAL, None, "hello", False)
+        assert "No terminal buffers found" in result["error"]
+
+    def test_pastes_without_submit(self, client):
+        """Single terminal is auto-selected; text is echoed by the pty."""
+        buf = self._open_term(client)
+        result = client.exec_lua(SEND_TO_TERMINAL, None, "hello", False)
+        assert "error" not in result
+        assert result["buf"] == buf
+        assert result["sent"] == 5
+        assert result["submitted"] is False
+        self._wait_for_text(client, buf, "hello")
+
+    def test_trailing_newline_stripped_without_submit(self, client):
+        self._open_term(client)
+        result = client.exec_lua(SEND_TO_TERMINAL, None, "abc\n", False)
+        assert result["sent"] == 3
+
+    def test_submit_appends_carriage_return(self, client):
+        self._open_term(client)
+        result = client.exec_lua(SEND_TO_TERMINAL, None, "abc", True)
+        assert result["sent"] == 4
+        assert result["submitted"] is True
+
+    def test_submit_executes_command(self, client):
+        """The typed text and the output differ, proving execution."""
+        buf = self._open_term(client, cmd="")  # plain shell
+        result = client.exec_lua(
+            SEND_TO_TERMINAL, None, "printf 'a%sc\\n' b", True
+        )
+        assert "error" not in result
+        self._wait_for_text(client, buf, "abc")
+
+    def test_multiple_terminals_require_selection(self, client):
+        self._open_term(client)
+        client.exec_lua("vim.cmd('split')")
+        self._open_term(client)
+        result = client.exec_lua(SEND_TO_TERMINAL, None, "x", False)
+        assert "Multiple terminals" in result["error"]
+        assert len(result["terminals"]) == 2
+
+    def test_select_by_buffer_number(self, client):
+        buf1 = self._open_term(client)
+        client.exec_lua("vim.cmd('split')")
+        self._open_term(client)
+        result = client.exec_lua(SEND_TO_TERMINAL, buf1, "picked", False)
+        assert "error" not in result
+        assert result["buf"] == buf1
+        self._wait_for_text(client, buf1, "picked")
+
+    def test_select_by_exact_name(self, client):
+        buf = self._open_term(client)
+        client.exec_lua("vim.cmd('split')")
+        self._open_term(client)
+        name = next(
+            t["name"]
+            for t in client.exec_lua(SEND_TO_TERMINAL, None, "x", False)["terminals"]
+            if t["buf"] == buf
+        )
+        result = client.exec_lua(SEND_TO_TERMINAL, name, "named", False)
+        assert "error" not in result
+        assert result["buf"] == buf
+
+    def test_unknown_target_errors_with_listing(self, client):
+        self._open_term(client)
+        result = client.exec_lua(SEND_TO_TERMINAL, "no_such_term", "x", False)
+        assert "No terminal buffer matching" in result["error"]
+        assert len(result["terminals"]) == 1
+        result = client.exec_lua(SEND_TO_TERMINAL, 9999, "x", False)
+        assert "No terminal buffer with number" in result["error"]
+
+    def test_dead_job_errors(self, client):
+        """The channel outlives the job; the send itself must fail cleanly."""
+        buf = self._open_term(client, cmd="true")
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            result = client.exec_lua(SEND_TO_TERMINAL, buf, "x", False)
+            if "error" in result:
+                break
+            time.sleep(0.05)
+        else:
+            pytest.fail("send did not fail within 5 seconds of job exit")
+        assert "Could not send to terminal" in result["error"]
+
+
+class TestStateTerminals:
+    """Terminal listings in GET_STATE and GET_STATE_BRIEF."""
+
+    @pytest.fixture()
+    def client(self, nvim_socket):
+        c = NvimClient.connect(nvim_socket)
+        yield c
+        c.close()
+
+    def test_absent_without_terminals(self, client):
+        assert "terminals" not in client.exec_lua(GET_STATE_BRIEF, 5)
+        assert "terminals" not in client.exec_lua(GET_STATE, 5, 5)
+
+    def test_brief_lists_terminals(self, client):
+        buf = client.exec_lua(
+            "vim.cmd('terminal cat')\n"
+            "return vim.api.nvim_get_current_buf()"
+        )
+        terms = client.exec_lua(GET_STATE_BRIEF, 5)["terminals"]
+        assert len(terms) == 1
+        assert terms[0]["buf"] == buf
+        assert terms[0]["visible"] is True
+        assert terms[0]["name"]
+
+    def test_full_state_lists_hidden_terminal(self, client):
+        buf = client.exec_lua(
+            "vim.cmd('terminal cat')\n"
+            "local b = vim.api.nvim_get_current_buf()\n"
+            "vim.cmd('enew')\n"
+            "return b"
+        )
+        terms = client.exec_lua(GET_STATE, 5, 5)["terminals"]
+        entry = next(t for t in terms if t["buf"] == buf)
+        assert entry["visible"] is False

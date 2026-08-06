@@ -28,6 +28,25 @@ diagnostics, highlights, virtual text, all windows).**
    (`wincmd p` or target it directly), run the split there, then
    switch back if needed.
 
+## Terminals
+
+**To put text into a terminal, use `send_to_terminal` — never
+`send_keys`, insert mode, or the buffer edit tools (terminal buffers
+are not editable).** It writes to the terminal's job channel, so it
+works regardless of focus or mode and never moves the user's cursor.
+
+- Open terminals are listed under `terminals` in `get_state_brief` /
+  `get_state`; target one by its `buf` or `name`. With a single
+  terminal open, the argument can be omitted.
+- Default (`submit=false`): the text sits at the prompt for the user
+  to review and press Enter. This is almost always what you want.
+
+**⚠ MANDATORY: never pass `submit=true` unless the user has
+explicitly asked for the command to be RUN in that message. "Put",
+"paste", "type", or "prepare" a command always means `submit=false`.
+Suggesting a command yourself is not permission to run it. When in
+doubt, use `submit=false` and let the user press Enter.**
+
 ## Colors
 
 Both `highlight_range` and `add_virtual_text` accept the same two
