@@ -2,6 +2,8 @@
 
 [![PyPI](https://img.shields.io/pypi/v/nvim-mcp)](https://pypi.org/project/nvim-mcp/)
 
+[![nvim-mcp MCP server](https://glama.ai/mcp/servers/paulburgess1357/nvim-mcp/badges/card.svg)](https://glama.ai/mcp/servers/paulburgess1357/nvim-mcp)
+
 An [MCP](https://modelcontextprotocol.io/) server that gives AI agents first-class access to your running Neovim session. It connects through Neovim's native msgpack-RPC socket — no plugins required.
 
 Works with Cursor, Claude Code, Codex, OpenCode, and any MCP-compatible client.
@@ -119,7 +121,7 @@ nvim-mcp runs via [uv](https://docs.astral.sh/uv/) (recommended) or [Nix](https:
 
    For Claude Code, Codex, Claude Desktop, OpenCode, and other clients, see the [configuration guide](config/README.md).
 
-3. **Add agent rules — do not skip this.** Without rules, the agent has the tools but doesn't know *when or how* to use them, and behavior will be unreliable. See the [configuration guide](config/README.md#2-add-agent-rules) for setup.
+3. **Add agent rules — do not skip this.** Without rules, the agent has the tools but doesn't know _when or how_ to use them, and behavior will be unreliable. See the [configuration guide](config/README.md#2-add-agent-rules) for setup.
 
 4. **Start Neovim** — on most Linux systems it listens on a Unix socket automatically and is discovered by nvim-mcp. If auto-discovery doesn't work, see [environment variables](config/README.md#3-environment-variables-optional). Running multiple instances? See [multiple instances](docs/MULTIPLE_INSTANCES.md).
 
