@@ -10,11 +10,20 @@ You already know Vim — use that knowledge.
 
 ## Rules
 
-**⚠ CRITICAL: Call `get_state_brief` at the START of every turn — before
-any nvim-mcp call, file read, or disk edit that touches a Neovim buffer.
-Never carry over cursor position or file identity from a previous turn.
-Use the full `get_state` only when you need deep context (folds, marks,
-diagnostics, highlights, virtual text, all windows).**
+**⚠ CRITICAL: `get_state_brief` is the required first step before
+touching Neovim or files — call it before your FIRST nvim-mcp call,
+file read, or disk edit in a turn. State from previous turns is
+stale: never carry over cursor position, active window, or file
+identity. Use the full `get_state` only when you need deep context
+(folds, marks, diagnostics, highlights, virtual text, all windows).**
+
+**Do NOT call it when the turn needs no Neovim or file access.**
+Explaining, planning, or discussing an approach needs no state
+check — use what's already in context. But treat file contents you
+read in earlier turns as possibly stale: if the user may have edited
+since, or your answer depends on the file's exact current contents,
+re-read the buffer (state check first). Skip the check only when the
+question is about ideas, not current file state.
 
 1. **If a file is in `buffers`, always use buffer tools — not disk.**
    Read with `read_full_buf` (or `read_buf_range` for a slice).
