@@ -300,10 +300,13 @@ async def get_state_brief() -> dict:
     """Lightweight snapshot of the Neovim session for quick orientation.
     Read-only — does not modify any editor state.
 
-    Use this at the start of each turn to see what the user is working
-    on. Use `get_state` instead when you need the full picture: all
-    windows, folds, marks, diagnostics summaries, highlights, virtual
-    text, and indent settings.
+    Use this when a turn depends on what the user is working on:
+    before reading or editing files, acting on the editor, or
+    answering about the current view. One call per turn is enough;
+    skip it for turns that don't touch the editor or files. Use
+    `get_state` instead when you need the full picture: all windows,
+    folds, marks, diagnostics summaries, highlights, virtual text, and
+    indent settings.
 
     Returns: mode (normal/insert/visual/etc.), cwd, buffers (relative
     paths of all listed buffers), modified_buffers, and active_window:

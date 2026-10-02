@@ -8,22 +8,47 @@ alwaysApply: true
 The user edits code in Neovim. You control it through nvim-mcp tools.
 You already know Vim — use that knowledge.
 
+## When to check editor state
+
+`get_state_brief` tells you what the user is looking at right now:
+the active file, the cursor position, and which files are open in
+buffers. Call it when your next step depends on that, and skip it
+when it doesn't. A call the turn doesn't need only slows the reply.
+
+Call it once, at the start of a turn in which you will:
+
+- Read or edit a file. You need `buffers` to choose between buffer
+  tools and disk, and the user may have edited or moved since your
+  last turn.
+- Act on the editor: open a file, change windows, highlight,
+  annotate, or send text to a terminal.
+- Answer something that points at the user's current view, such as
+  "this function", "here", "the current file", or "what's wrong with
+  this?".
+
+Skip it when the turn doesn't depend on the editor:
+
+- Follow-ups about something already in the conversation, such as
+  "why did you do it that way?", "explain that more", or "what about
+  the other approach?".
+- General questions, planning, and design discussion.
+- Work that happens outside the editor, such as running shell or git
+  commands, or drafting a message.
+
+For a follow-up about code you read earlier, answer from what you
+already have. Re-read the buffer only if the user says they changed
+it, or the answer depends on the file's exact current text.
+
+One call per turn is enough. Within a turn, don't re-check after
+your own edits or commands; their results already tell you what
+changed. Across turns, nothing carries over: when a new turn does
+need the editor, check again instead of reusing an earlier cursor
+position, active window, or file.
+
+Use the full `get_state` only when you need deep context (folds,
+marks, diagnostics, highlights, virtual text, all windows).
+
 ## Rules
-
-**⚠ CRITICAL: `get_state_brief` is the required first step before
-touching Neovim or files — call it before your FIRST nvim-mcp call,
-file read, or disk edit in a turn. State from previous turns is
-stale: never carry over cursor position, active window, or file
-identity. Use the full `get_state` only when you need deep context
-(folds, marks, diagnostics, highlights, virtual text, all windows).**
-
-**Do NOT call it when the turn needs no Neovim or file access.**
-Explaining, planning, or discussing an approach needs no state
-check — use what's already in context. But treat file contents you
-read in earlier turns as possibly stale: if the user may have edited
-since, or your answer depends on the file's exact current contents,
-re-read the buffer (state check first). Skip the check only when the
-question is about ideas, not current file state.
 
 1. **If a file is in `buffers`, always use buffer tools — not disk.**
    Read with `read_full_buf` (or `read_buf_range` for a slice).
